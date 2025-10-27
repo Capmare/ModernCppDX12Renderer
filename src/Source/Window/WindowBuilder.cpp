@@ -65,9 +65,9 @@ namespace HOX {
         );
 
         if (WindowHandle == NULL) {
-            HOXLogger::Message(HOXSeverity::Error, "Failed to create Window");
+            HOXLogger::LogMessage(HOXSeverity::Error, "Failed to create Window");
         }
-        HOXLogger::Message(HOXSeverity::Normal, "WindowHandle create successfully");
+        HOXLogger::LogMessage(HOXSeverity::Normal, "WindowHandle create successfully");
 
         return WindowHandle;
 

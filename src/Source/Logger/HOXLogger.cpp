@@ -8,7 +8,7 @@
 #include <iostream>
 #include <windows.h>
 
-void HOXLogger::Message(const HOXSeverity &Severity, const std::string &Message, const std::source_location &Location) {
+void HOXLogger::LogMessage(const HOXSeverity &Severity, const std::string &Message, const std::source_location &Location) {
     std::string SeverityStr;
     std::string Color;
 

@@ -7,6 +7,7 @@
 #include <source_location>
 #include <string>
 
+// Logging severity
 enum HOXSeverity {
     Normal,
     Warning,
@@ -29,7 +30,7 @@ class HOXLogger {
     HOXLogger(HOXLogger&&) = delete;
     HOXLogger& operator=(HOXLogger&&) = delete;
 
-    static void Message(const HOXSeverity& Severity, const std::string& Message, const std::source_location& Location = std::source_location::current());
+    static void LogMessage(const HOXSeverity& Severity, const std::string& Message, const std::source_location& Location = std::source_location::current());
 
 };
 
