@@ -13,3 +13,19 @@ LRESULT HOX::HOXWindow::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
             return DefWindowProc(hwnd, uMsg, wParam, lParam);
     }
 }
+
+void HOX::HOXWindow::Run() {
+    MSG msg{0};
+    while (!bShouldQuit) {
+        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            if (msg.message == WM_QUIT) {
+                bShouldQuit = true;
+            }
+        }
+        else {
+            // Do rendering
+        }
+    }
+}

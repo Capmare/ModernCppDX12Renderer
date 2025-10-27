@@ -7,10 +7,13 @@
 #include <format>
 #include <stdexcept>
 
+#include "../../Header/Logger/HOXLogger.h"
+
 namespace HOX {
     WindowBuilder & WindowBuilder::SetWindowProc(const WNDPROC &WindowProc) {
         m_WindowClass.lpfnWndProc = WindowProc;
         m_WindowClass.hInstance = m_hInstance;
+        m_WindowClass.style = CS_HREDRAW | CS_VREDRAW;
         m_WindowClass.lpszClassName = m_WindowClassName;
         return *this;
     }
@@ -38,6 +41,11 @@ namespace HOX {
         return *this;
     }
 
+    WindowBuilder & WindowBuilder::SetWindowStyle(const DWORD &WindowStyle) {
+        m_WindowStyle = WindowStyle;
+        return *this;
+    }
+
     HWND WindowBuilder::BuildImpl() {
         RegisterClass(&m_WindowClass);
 
@@ -57,12 +65,9 @@ namespace HOX {
         );
 
         if (WindowHandle == NULL) {
-            throw std::logic_error(
-                std::format("{} could not create the window with the current settings {}:{}",
-                    GetName(),
-                    __FILE__, __LINE__)
-            );
+            HOXLogger::Message(HOXSeverity::Error, "Failed to create Window");
         }
+        HOXLogger::Message(HOXSeverity::Normal, "WindowHandle create successfully");
 
         return WindowHandle;
 

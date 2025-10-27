@@ -37,6 +37,7 @@ namespace HOX {
         WindowBuilder& SetWindowClassName(const std::string& WindowClassName);
         WindowBuilder& SetWindowTitle(const std::string& WindowTitle);
         WindowBuilder& SetWindowLocationAndSize(const WindowParams& WindowParams);
+        WindowBuilder& SetWindowStyle(const DWORD& WindowStyle);
 
         HWND BuildImpl();
 

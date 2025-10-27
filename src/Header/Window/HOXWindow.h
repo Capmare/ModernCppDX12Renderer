@@ -22,8 +22,9 @@ namespace HOX {
         static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 
+        void Run();
     private:
-
+        bool bShouldQuit{false};
         HWND m_Window{};
     };
 }
