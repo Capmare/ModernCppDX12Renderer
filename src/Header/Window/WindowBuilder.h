@@ -4,7 +4,6 @@
 
 #ifndef MODERNCPPDX12RENDERER_WINDOW_H
 #define MODERNCPPDX12RENDERER_WINDOW_H
-#include <bemapiset.h>
 #include <windows.h>
 
 #include "../Builder.h"
