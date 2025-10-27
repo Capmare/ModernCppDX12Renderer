@@ -11,6 +11,7 @@ enum HOXSeverity {
     Normal,
     Warning,
     Error,
+    ErrorNoCrash,
     Info,
     Debug
 };
