@@ -7,7 +7,7 @@
 #include <format>
 #include <stdexcept>
 
-#include "../../Header/Logger/HOXLogger.h"
+#include "../../Header/Logger/Logger.h"
 
 namespace HOX {
     WindowBuilder & WindowBuilder::SetWindowProc(const WNDPROC &WindowProc) {
@@ -65,9 +65,9 @@ namespace HOX {
         );
 
         if (WindowHandle == NULL) {
-            HOXLogger::LogMessage(HOXSeverity::Error, "Failed to create Window");
+            Logger::LogMessage(Severity::Error, "Failed to create Window");
         }
-        HOXLogger::LogMessage(HOXSeverity::Normal, "WindowHandle create successfully");
+        Logger::LogMessage(Severity::Normal, "WindowHandle create successfully");
 
         return WindowHandle;
 

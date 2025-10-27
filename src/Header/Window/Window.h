@@ -7,16 +7,16 @@
 #include <Windows.h>
 
 namespace HOX {
-    class HOXWindow {
+    class Window {
     public:
-        HOXWindow() = default;
-        ~HOXWindow() = default;
+        Window() = default;
+        ~Window() = default;
 
         // Prevent copy and move
-        HOXWindow(const HOXWindow&) = delete;
-        HOXWindow& operator=(const HOXWindow&) = delete;
-        HOXWindow(HOXWindow&&) = delete;
-        HOXWindow& operator=(HOXWindow&&) = delete;
+        Window(const Window&) = delete;
+        Window& operator=(const Window&) = delete;
+        Window(Window&&) = delete;
+        Window& operator=(Window&&) = delete;
 
         void SetWindowHandle( HWND& WindowHandle) { m_Window = WindowHandle; }
         static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

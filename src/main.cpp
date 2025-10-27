@@ -1,19 +1,19 @@
 ﻿#include <memory>
 #include <windows.h>
 
-#include "Header/Window/HOXWindow.h"
+#include "Header/Window/Window.h"
 #include "Header/Window/WindowBuilder.h"
 
 
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     try {
-        std::unique_ptr<HOX::HOXWindow> Window = std::make_unique<HOX::HOXWindow>();
+        std::unique_ptr<HOX::Window> Window = std::make_unique<HOX::Window>();
 
         auto WindowHandle = std::make_unique<HOX::WindowBuilder>("Window Builder")
                 ->SetWindowInstance(hInstance)
                 .SetWindowClassName("Window Class")
                 .SetWindowTitle("HOX Renderer")
-                .SetWindowProc(HOX::HOXWindow::WindowProc)
+                .SetWindowProc(HOX::Window::WindowProc)
                 .SetWindowStyle(WS_OVERLAPPEDWINDOW)
                 .Build();
 

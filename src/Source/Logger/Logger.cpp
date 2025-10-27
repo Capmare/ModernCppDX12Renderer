@@ -2,32 +2,34 @@
 // Created by david on 10/27/2025.
 //
 
-#include "../../Header/Logger/HOXLogger.h"
+#include "../../Header/Logger/Logger.h"
 
 #include <format>
 #include <iostream>
 #include <windows.h>
 
-void HOXLogger::LogMessage(const HOXSeverity &Severity, const std::string &Message, const std::source_location &Location) {
+using namespace HOX;
+
+void Logger::LogMessage(const Severity &MessageSeverity, const std::string &Message, const std::source_location &Location) {
     std::string SeverityStr;
     std::string Color;
 
-    switch (Severity) {
-        case HOXSeverity::Normal: SeverityStr = "NORMAL";
+    switch (MessageSeverity) {
+        case Severity::Normal: SeverityStr = "NORMAL";
             std::cout << Color << SeverityStr << "\033[0m"
             << "\t" << Message << std::endl; return;
             break;
-        case HOXSeverity::ErrorNoCrash:
-        case HOXSeverity::Error: SeverityStr = "ERROR";
+        case Severity::ErrorNoCrash:
+        case Severity::Error: SeverityStr = "ERROR";
             Color = "\033[31m";
             break;
-        case HOXSeverity::Warning: SeverityStr = "WARNING";
+        case Severity::Warning: SeverityStr = "WARNING";
             Color = "\033[33m";
             break;
-        case HOXSeverity::Info: SeverityStr = "INFO";
+        case Severity::Info: SeverityStr = "INFO";
             Color = "\033[36m";
             break;
-        case HOXSeverity::Debug: SeverityStr = "DEBUG";
+        case Severity::Debug: SeverityStr = "DEBUG";
             Color = "\033[32m";
             break;
         default: SeverityStr = "UNKNOWN";
@@ -42,7 +44,7 @@ void HOXLogger::LogMessage(const HOXSeverity &Severity, const std::string &Messa
             << "\t" << Location.function_name()
             << std::endl;
 
-    if (Severity == HOXSeverity::Error) {
+    if (MessageSeverity == Severity::Error) {
         throw std::runtime_error(std::format(
             "Message:\t{}\nLine:\t{}:{}\nIn function:\t{}",
             Message,

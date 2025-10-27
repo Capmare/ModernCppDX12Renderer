@@ -2,9 +2,9 @@
 // Created by david on 10/27/2025.
 //
 
-#include "../../Header/Window/HOXWindow.h"
+#include "../../Header/Window/Window.h"
 
-LRESULT HOX::HOXWindow::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+LRESULT HOX::Window::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
         case WM_DESTROY:
             PostQuitMessage(0);
@@ -14,7 +14,7 @@ LRESULT HOX::HOXWindow::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
     }
 }
 
-void HOX::HOXWindow::Run() {
+void HOX::Window::Run() {
     MSG msg{0};
     while (!bShouldQuit) {
         if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
