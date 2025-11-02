@@ -4,7 +4,22 @@
 
 #include "../../Header/Window/Window.h"
 
+#include <memory>
+#include "../../Header/Window/WindowBuilder.h"
 namespace HOX {
+
+    Window::Window(const HINSTANCE& hInstance, int nCmdShow) {
+        auto WindowHandle = std::make_unique<HOX::WindowBuilder>("Window Builder")
+               ->SetWindowInstance(hInstance)
+               .SetWindowClassName("Window Class")
+               .SetWindowTitle("HOX Renderer")
+               .SetWindowProc(WindowProc)
+               .SetWindowStyle(WS_OVERLAPPEDWINDOW)
+               .Build();
+
+        ShowWindow(WindowHandle, nCmdShow);
+    }
+
     LRESULT Window::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         switch (uMsg) {
             case WM_DESTROY:

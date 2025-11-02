@@ -7,18 +7,7 @@
 
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     try {
-        std::unique_ptr<HOX::Window> Window = std::make_unique<HOX::Window>();
-
-        auto WindowHandle = std::make_unique<HOX::WindowBuilder>("Window Builder")
-                ->SetWindowInstance(hInstance)
-                .SetWindowClassName("Window Class")
-                .SetWindowTitle("HOX Renderer")
-                .SetWindowProc(HOX::Window::WindowProc)
-                .SetWindowStyle(WS_OVERLAPPEDWINDOW)
-                .Build();
-
-        ShowWindow(WindowHandle, nCmdShow);
-        Window->SetWindowHandle(WindowHandle);
+        std::unique_ptr<HOX::Window> Window = std::make_unique<HOX::Window>(hInstance, nCmdShow);
         Window->Run();
 
     } catch (const std::exception &e) {
