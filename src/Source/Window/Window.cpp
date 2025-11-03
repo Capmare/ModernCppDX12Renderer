@@ -31,6 +31,8 @@ namespace HOX {
     }
 
     void Window::Run() {
+        m_Renderer = std::make_unique<Renderer>();
+
         MSG msg{0};
         while (!bShouldQuit) {
             if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -42,6 +44,8 @@ namespace HOX {
             }
             else {
                 // Do rendering
+                m_Renderer->Render();
+
             }
         }
     }
