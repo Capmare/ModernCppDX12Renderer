@@ -4,7 +4,9 @@
 
 #ifndef MODERNCPPDX12RENDERER_HOXWINDOW_H
 #define MODERNCPPDX12RENDERER_HOXWINDOW_H
+#include <memory>
 #include <Windows.h>
+#include "../Renderer/Renderer.h"
 
 namespace HOX {
     class Window {
@@ -24,6 +26,7 @@ namespace HOX {
 
         void Run();
     private:
+        std::unique_ptr<HOX::Renderer> m_Renderer;
         bool bShouldQuit{false};
         HWND m_Window{};
     };
