@@ -9,7 +9,7 @@
 namespace HOX {
     class Window {
     public:
-        Window() = default;
+        Window(const HINSTANCE& hInstance, int nCmdShow);
         ~Window() = default;
 
         // Prevent copy and move
@@ -18,7 +18,7 @@ namespace HOX {
         Window(Window&&) = delete;
         Window& operator=(Window&&) = delete;
 
-        void SetWindowHandle( HWND& WindowHandle) { m_Window = WindowHandle; }
+        void SetWindowHandle(const HWND& WindowHandle) { m_Window = WindowHandle; }
         static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 
