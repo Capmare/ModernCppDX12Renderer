@@ -6,6 +6,7 @@
 #define MODERNCPPDX12RENDERER_HOXLOGGER_H
 #include <source_location>
 #include <string>
+#include <windows.h>
 
 namespace HOX {
     // Logging severity
@@ -30,7 +31,7 @@ namespace HOX {
         Logger(Logger&&) = delete;
         Logger& operator=(Logger&&) = delete;
 
-        static void LogMessage(const Severity& MessageSeverity, const std::string& Message, const std::source_location& Location = std::source_location::current());
+        static void LogMessage(const Severity& MessageSeverity, const std::string& Message, DWORD ErrorCode = GetLastError(), const std::source_location& Location = std::source_location::current());
 
     };
 }
