@@ -10,178 +10,6 @@
 
 namespace HOX {
     Renderer::Renderer() {
-        m_DeviceContext = std::make_unique<DeviceContext>();
-    }
-
-    void Renderer::EnableDebugLayer() {
-#ifdef _DEBUG
-        ComPtr<ID3D12Debug> DebugInterface{};
-        if (FAILED(D3D12GetDebugInterface(IID_PPV_ARGS(&DebugInterface)))) {
-            HOX::Logger::LogMessage(Severity::Error, "Failed to get D3D12 debug layer.");
-        } else {
-            Logger::LogMessage(Severity::Info, "D3D12 debug layer enabled.");
-        }
-
-        DebugInterface->EnableDebugLayer();
-#endif
-    }
-
-    ComPtr<IDXGIAdapter4> Renderer::QueryDx12Adapter() {
-        ComPtr<IDXGIFactory7> DXGIFactory{};
-        UINT CreateFactoryFlags = 0;
-#ifdef _DEBUG
-        CreateFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
-#endif
-
-        if (FAILED(CreateDXGIFactory2(CreateFactoryFlags, IID_PPV_ARGS(&DXGIFactory)))) {
-            Logger::LogMessage(Severity::Error, "Failed to create DXGIFactory.");
-            return nullptr;
-        } else {
-            Logger::LogMessage(Severity::Info, "DXGIFactory created.");
-        }
-
-        ComPtr<IDXGIAdapter1> DXGIAdapter1{};
-        ComPtr<IDXGIAdapter4> DXGIAdapter4{};
-
-        if (m_bUseWarp) {
-            HRESULT hr = DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&DXGIAdapter1));
-            if (FAILED(hr)) {
-                Logger::LogMessage(Severity::Error, "Failed to enumerate warp adapter.");
-                return nullptr;
-            } else {
-                Logger::LogMessage(Severity::Info, "Warp adapter enumerated.");
-            }
-
-            hr = DXGIAdapter1.As(&DXGIAdapter4);
-            if (FAILED(hr)) {
-                Logger::LogMessage(Severity::Error, "Failed to get warp adapter.");
-                return nullptr;
-            } else {
-                Logger::LogMessage(Severity::Info, "Warp adapter found.");
-            }
-
-            return DXGIAdapter4;
-        } else {
-            SIZE_T MaxDedicatedVideoMemory = 0;
-            DXGIAdapter4 = nullptr;
-
-            for (UINT Idx = 0; DXGIFactory->EnumAdapters1(Idx, &DXGIAdapter1) != DXGI_ERROR_NOT_FOUND; Idx++) {
-                DXGI_ADAPTER_DESC1 DXGIAdapterDesc1{};
-                DXGIAdapter1->GetDesc1(&DXGIAdapterDesc1);
-
-                if ((DXGIAdapterDesc1.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0) {
-                    // Test if this adapter can create a D3D12 device
-                    if (SUCCEEDED(
-                        D3D12CreateDevice(DXGIAdapter1.Get(), D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), nullptr
-                        ))) {
-                        if (DXGIAdapterDesc1.DedicatedVideoMemory > MaxDedicatedVideoMemory) {
-                            MaxDedicatedVideoMemory = DXGIAdapterDesc1.DedicatedVideoMemory;
-                            HRESULT hr = DXGIAdapter1.As(&DXGIAdapter4);
-                            if (FAILED(hr)) {
-                                Logger::LogMessage(Severity::Error, "Failed to get IDXGIAdapter4 from IDXGIAdapter1.");
-                            } else {
-                                Logger::LogMessage(Severity::Info,
-                                                   "Found suitable adapter with dedicated video memory.");
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (!DXGIAdapter4) {
-                // fallback to WARP if no suitable adapter found
-                Logger::LogMessage(Severity::Warning, "No suitable hardware adapter found, falling back to WARP.");
-                HRESULT hr = DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&DXGIAdapter1));
-                if (FAILED(hr)) {
-                    Logger::LogMessage(Severity::Error, "Failed to enumerate warp adapter as fallback.");
-                    return nullptr;
-                }
-                hr = DXGIAdapter1.As(&DXGIAdapter4);
-                if (FAILED(hr)) {
-                    Logger::LogMessage(Severity::Error, "Failed to get WARP adapter as fallback.");
-                    return nullptr;
-                }
-            }
-
-            return DXGIAdapter4;
-        }
-    }
-
-
-    ComPtr<ID3D12Device10> Renderer::CreateDevice() {
-        ComPtr<ID3D12Device10> Device{};
-
-        HRESULT Hr = D3D12CreateDevice(m_DeviceContext->m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2,IID_PPV_ARGS(&Device));
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to create D3D12 device.");
-        } else {
-            Logger::LogMessage(Severity::Info, "D3D12 device created.");
-        }
-
-#ifdef _DEBUG
-        ComPtr<ID3D12InfoQueue> InfoQueue;
-        if (SUCCEEDED(Device.As(&InfoQueue))) {
-            InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-            InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
-            InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
-
-            // Suppress whole categories of messages
-            //D3D12_MESSAGE_CATEGORY Categories[] = {};
-
-            // Suppress messages based on their severity level
-            D3D12_MESSAGE_SEVERITY Severities[] =
-            {
-                D3D12_MESSAGE_SEVERITY_INFO
-            };
-
-            // Suppress individual messages by their ID
-            D3D12_MESSAGE_ID DenyIds[] = {
-                D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
-                D3D12_MESSAGE_ID_MAP_INVALID_NULLRANGE,
-                // This warning occurs when using capture frame while graphics debugging.
-                D3D12_MESSAGE_ID_UNMAP_INVALID_NULLRANGE, // Same
-            };
-
-            D3D12_INFO_QUEUE_FILTER NewFilter = {};
-            //NewFilter.DenyList.NumCategories = _countof(Categories);
-            //NewFilter.DenyList.pCategoryList = Categories;
-            NewFilter.DenyList.NumSeverities = _countof(Severities);
-            NewFilter.DenyList.pSeverityList = Severities;
-            NewFilter.DenyList.NumIDs = _countof(DenyIds);
-            NewFilter.DenyList.pIDList = DenyIds;
-
-            Hr = InfoQueue->PushStorageFilter(&NewFilter);
-            if (FAILED(Hr)) {
-                Logger::LogMessage(Severity::Error, "Failed to push storage filter.");
-            } else {
-                Logger::LogMessage(Severity::Info, "D3D12 info queue pushed.");
-            }
-        }
-#endif
-
-
-        return Device;
-    }
-
-    bool Renderer::CheckTearingSupport() {
-        bool TearingSupport = false;
-
-        UINT CreateFactoryFlags = 0;
-
-#ifdef _DEBUG
-        CreateFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
-#endif
-
-        ComPtr<IDXGIFactory7> Factory{};
-
-        if (SUCCEEDED(CreateDXGIFactory2(CreateFactoryFlags,IID_PPV_ARGS(&Factory)))) {
-            if (SUCCEEDED(
-                Factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &TearingSupport, sizeof(TearingSupport)
-                ))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     ComPtr<ID3D12CommandQueue>
@@ -274,7 +102,7 @@ namespace HOX {
         SwapChainDesc.Scaling = DXGI_SCALING_STRETCH;
         SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
         SwapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-        SwapChainDesc.Flags = CheckTearingSupport() ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
+        SwapChainDesc.Flags = /*CheckTearingSupport() ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING :*/ 0;
 
         ComPtr<IDXGISwapChain1> SwapChain1{};
         Hr = Factory->CreateSwapChainForHwnd(
@@ -359,9 +187,11 @@ namespace HOX {
         if (m_bFullScreen != FullScreen) {
             m_bFullScreen = FullScreen;
             if (m_bFullScreen) {
-                GetWindowRect(Hwnd,&m_WindowRect);
+                GetWindowRect(Hwnd, &m_WindowRect);
 
-                UINT WindowStyle = WS_OVERLAPPEDWINDOW & ~(WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+                UINT WindowStyle =
+                        WS_OVERLAPPEDWINDOW & ~(
+                            WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
 
                 SetWindowLongW(Hwnd, GWL_STYLE, WindowStyle);
 
@@ -371,23 +201,20 @@ namespace HOX {
                 GetMonitorInfo(HMonitor, &MonitorInfo);
 
                 SetWindowPos(Hwnd, HWND_TOP,
-                MonitorInfo.rcMonitor.left,
-                MonitorInfo.rcMonitor.top,
-                MonitorInfo.rcMonitor.right - MonitorInfo.rcMonitor.left,
-                MonitorInfo.rcMonitor.bottom - MonitorInfo.rcMonitor.top,
-                SWP_FRAMECHANGED | SWP_NOACTIVATE);
-
-
-            }
-            else {
+                             MonitorInfo.rcMonitor.left,
+                             MonitorInfo.rcMonitor.top,
+                             MonitorInfo.rcMonitor.right - MonitorInfo.rcMonitor.left,
+                             MonitorInfo.rcMonitor.bottom - MonitorInfo.rcMonitor.top,
+                             SWP_FRAMECHANGED | SWP_NOACTIVATE);
+            } else {
                 SetWindowLong(Hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
 
                 SetWindowPos(Hwnd, HWND_NOTOPMOST,
-                    m_WindowRect.left,
-                    m_WindowRect.top,
-                    m_WindowRect.right - m_WindowRect.left,
-                    m_WindowRect.bottom - m_WindowRect.top,
-                    SWP_FRAMECHANGED | SWP_NOACTIVATE);
+                             m_WindowRect.left,
+                             m_WindowRect.top,
+                             m_WindowRect.right - m_WindowRect.left,
+                             m_WindowRect.bottom - m_WindowRect.top,
+                             SWP_FRAMECHANGED | SWP_NOACTIVATE);
 
                 ShowWindow(Hwnd, SW_NORMAL);
             }
@@ -436,34 +263,35 @@ namespace HOX {
 
 
     void Renderer::InitializeRenderer(HWND Hwnd) {
-        m_DeviceContext = std::make_unique<DeviceContext>();
+        m_Context = std::make_unique<Context>();
 
-        EnableDebugLayer();
-        m_DeviceContext->m_bTearingSupported = CheckTearingSupport();
+        m_DeviceManager = std::make_unique<DeviceManager>();
+        m_DeviceManager->Initialize(m_Context);
 
-        m_DeviceContext->m_Adapter = QueryDx12Adapter();
-        m_DeviceContext->m_Device = CreateDevice();
-        m_CommandQueue = CreateCommandQueue(m_DeviceContext->m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+
+        m_bTearingSupported = m_DeviceManager->CheckTearingSupport();
+
+        m_CommandQueue = CreateCommandQueue(m_Context->m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 
         m_SwapChain = CreateSwapChain(Hwnd, m_CommandQueue, m_WindowWidth, m_WindowHeight, m_MaxFrames);
 
         m_CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
 
-        m_RTVDescriptorHeap = CreateDescriptorHeap(m_DeviceContext->m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+        m_RTVDescriptorHeap = CreateDescriptorHeap(m_Context->m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
                                                    m_MaxFrames);
-        m_RTVDescriptorSize = m_DeviceContext->m_Device->GetDescriptorHandleIncrementSize(
+        m_RTVDescriptorSize = m_Context->m_Device->GetDescriptorHandleIncrementSize(
             D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-        UpdateRenderTarget(m_DeviceContext->m_Device, m_SwapChain, m_RTVDescriptorHeap);
+        UpdateRenderTarget(m_Context->m_Device, m_SwapChain, m_RTVDescriptorHeap);
 
         for (uint32_t i = 0; i < m_MaxFrames; i++) {
-            m_CommandAllocators[i] = CreateCommandAllocator(m_DeviceContext->m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+            m_CommandAllocators[i] = CreateCommandAllocator(m_Context->m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
         }
 
-        m_CommandList = CreateCommandList(m_DeviceContext->m_Device, m_CommandAllocators[m_CurrentBackBufferIndex],
+        m_CommandList = CreateCommandList(m_Context->m_Device, m_CommandAllocators[m_CurrentBackBufferIndex],
                                           D3D12_COMMAND_LIST_TYPE_DIRECT);
 
-        m_Fence = CreateFence(m_DeviceContext->m_Device);
+        m_Fence = CreateFence(m_Context->m_Device);
         m_FenceEvent = CreateFenceEvent();
     }
 
@@ -516,8 +344,8 @@ namespace HOX {
             m_CommandQueue->ExecuteCommandLists(_countof(CommandLists), CommandLists);
             m_FrameFenceValues[m_CurrentBackBufferIndex] = Signal(m_CommandQueue, m_Fence, m_FenceValue);
 
-            UINT SyncInterval = m_DeviceContext->m_bUseVSync ? 1 : 0;
-            UINT PresentFlags = m_DeviceContext->m_bTearingSupported && !m_DeviceContext->m_bUseVSync
+            UINT SyncInterval = m_Context->m_bUseVSync ? 1 : 0;
+            UINT PresentFlags = m_bTearingSupported && !m_Context->m_bUseVSync
                                     ? DXGI_PRESENT_ALLOW_TEARING
                                     : 0;
 

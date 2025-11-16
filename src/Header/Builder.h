@@ -28,7 +28,7 @@ namespace HOX {
         // not all objects can have their validity verified
         // virtual void VerifyValidity();
 
-        std::string GetName() const { return m_Name; }
+        [[nodiscard]] std::string GetName() const { return m_Name; }
     private:
         const std::string m_Name{};
 

@@ -7,7 +7,9 @@
 
 
 #include <memory>
-#include "../ResourceManagement/DeviceContext.h"
+
+#include "../Device/DeviceManager.h"
+#include "../ResourceManagement/Context.h"
 
 namespace HOX {
     static constexpr uint8_t m_MaxFrames{3};
@@ -29,21 +31,11 @@ namespace HOX {
         void Update();
         void CleanUpRenderer();
 
-        std::unique_ptr<DeviceContext> m_DeviceContext{};
-
-        bool m_bUseWarp{false};
 
         uint32_t m_WindowWidth{0};
         uint32_t m_WindowHeight{0};
 
     private:
-        void EnableDebugLayer();
-
-        // Devices
-        ComPtr<IDXGIAdapter4> QueryDx12Adapter();
-        ComPtr<ID3D12Device10> CreateDevice();
-        bool CheckTearingSupport();
-
         // Commands
         ComPtr<ID3D12CommandQueue> CreateCommandQueue(ComPtr<ID3D12Device10> Device, D3D12_COMMAND_LIST_TYPE Type);
         ComPtr<ID3D12CommandAllocator> CreateCommandAllocator(ComPtr<ID3D12Device10> Device,D3D12_COMMAND_LIST_TYPE Type);
@@ -85,6 +77,11 @@ namespace HOX {
         void UpdateRenderTarget(ComPtr<ID3D12Device10> Device, ComPtr<IDXGISwapChain4> SwapChain,ComPtr<ID3D12DescriptorHeap> DescriptorHeap);
         ComPtr<ID3D12DescriptorHeap> m_RTVDescriptorHeap{};
         UINT m_RTVDescriptorSize{};
+
+        std::unique_ptr<Context> m_Context{};
+        std::unique_ptr<DeviceManager> m_DeviceManager{};
+
+        bool m_bTearingSupported{false};
 
     };
 } // HOX

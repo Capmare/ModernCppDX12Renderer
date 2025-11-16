@@ -10,16 +10,16 @@
 #include "Cleaner.h"
 
 namespace HOX {
-    class DeviceContext {
+    class Context {
     public:
-        DeviceContext();
-        ~DeviceContext() = default;
+        Context();
+        ~Context() = default;
 
         // Prevent copy and move
-        DeviceContext(const DeviceContext&) = delete;
-        DeviceContext& operator=(const DeviceContext&) = delete;
-        DeviceContext(DeviceContext&&) = delete;
-        DeviceContext& operator=(DeviceContext&&) = delete;
+        Context(const Context&) = delete;
+        Context& operator=(const Context&) = delete;
+        Context(Context&&) = delete;
+        Context& operator=(Context&&) = delete;
 
         ComPtr<ID3D12Device10> m_Device{};
         ComPtr<IDXGIAdapter4> m_Adapter{};
@@ -33,7 +33,7 @@ namespace HOX {
     };
 
 
-    DeviceContext& GetDeviceContext();
+    Context& GetDeviceContext();
 
 } // HOX
 
