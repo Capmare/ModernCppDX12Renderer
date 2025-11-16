@@ -4,6 +4,8 @@
 
 #ifndef MODERNCPPDX12RENDERER_WINDOW_H
 #define MODERNCPPDX12RENDERER_WINDOW_H
+#include <complex.h>
+#include <complex.h>
 #include <windows.h>
 
 #include "../Builder.h"
@@ -12,12 +14,6 @@
 
 namespace HOX {
 
-    struct WindowParams {
-        int xLoc{};
-        int yLoc{};
-        int width{};
-        int height{};
-    };
 
     class WindowBuilder final : public Builder<HWND,WindowBuilder> {
 
@@ -35,7 +31,7 @@ namespace HOX {
         WindowBuilder& SetWindowInstance(const HINSTANCE& instance);
         WindowBuilder& SetWindowClassName(const std::string& WindowClassName);
         WindowBuilder& SetWindowTitle(const std::string& WindowTitle);
-        WindowBuilder& SetWindowLocationAndSize(const WindowParams& WindowParams);
+        WindowBuilder& SetWindowLocationAndSize(const std::tuple<int,int,int,int>& WindowDimensions);
         WindowBuilder& SetWindowStyle(const DWORD& WindowStyle);
 
         HWND BuildImpl();

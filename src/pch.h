@@ -14,8 +14,18 @@
 #if defined(max)
 #undef max
 #endif
+#include <wrl/client.h>
+using Microsoft::WRL::ComPtr;
+
+// DirectX12 specific includes
+#include <d3d12.h>
+#include "d3dx12.h"
+#include <dxgi1_6.h>
+#include <d3dcompiler.h>
+#include <DirectXMath.h>
 
 
-
+// Usual includes
+#include "../src/Header/Logger/Logger.h"
 
 #endif //MODERNCPPDX12RENDERER_PCH_H

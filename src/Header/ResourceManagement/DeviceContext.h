@@ -5,6 +5,7 @@
 #ifndef MODERNCPPDX12RENDERER_DEVICECONTEXT_H
 #define MODERNCPPDX12RENDERER_DEVICECONTEXT_H
 #include <memory>
+#include "../../pch.h"
 
 #include "Cleaner.h"
 
@@ -20,9 +21,15 @@ namespace HOX {
         DeviceContext(DeviceContext&&) = delete;
         DeviceContext& operator=(DeviceContext&&) = delete;
 
-        HOX::Cleaner* GetCleaner() const { return m_Cleaner.get(); }
-    private:
+        ComPtr<ID3D12Device10> m_Device{};
+        ComPtr<IDXGIAdapter4> m_Adapter{};
         std::unique_ptr<HOX::Cleaner> m_Cleaner;
+
+        bool m_bUseVSync{false};
+        bool m_bTearingSupported{false};
+
+    private:
+
     };
 
 

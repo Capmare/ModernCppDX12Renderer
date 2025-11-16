@@ -33,11 +33,11 @@ namespace HOX {
         return *this;
     }
 
-    WindowBuilder& WindowBuilder::SetWindowLocationAndSize(const WindowParams &WindowParams) {
-        m_Width = WindowParams.width;
-        m_Height = WindowParams.height;
-        m_XLocation = WindowParams.xLoc;
-        m_YLocation = WindowParams.yLoc;
+    WindowBuilder& WindowBuilder::SetWindowLocationAndSize(const std::tuple<int,int,int,int> &WindowDimensions) {
+        m_XLocation = std::get<0>(WindowDimensions);
+        m_YLocation = std::get<1>(WindowDimensions);
+        m_Width = std::get<2>(WindowDimensions);
+        m_Height = std::get<3>(WindowDimensions);
         return *this;
     }
 

@@ -20,15 +20,25 @@ namespace HOX {
         Window(Window&&) = delete;
         Window& operator=(Window&&) = delete;
 
-        void SetWindowHandle(const HWND& WindowHandle) { m_Window = WindowHandle; }
-        static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+        LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 
         void Run();
+
+        std::tuple<int, int, int, int> GetWindowLocationAndDimension();
+        void SetWindowLocationAndDimension(std::tuple<int, int, int,int> NewLocation);
     private:
+        static LRESULT CALLBACK WindowThunk(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
         std::unique_ptr<HOX::Renderer> m_Renderer;
-        bool bShouldQuit{false};
         HWND m_Window{};
+
+        int m_Xloc{300};
+        int m_Yloc{300};
+        int m_Width{1920};
+        int m_Height{1080};
+
+        bool bShouldQuit{false};
     };
 }
 
