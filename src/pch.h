@@ -27,5 +27,10 @@ using Microsoft::WRL::ComPtr;
 
 // Usual includes
 #include "../src/Header/Logger/Logger.h"
+#include "../src/Header/ResourceManagement/Context.h"
+
+
+static constexpr uint8_t m_MaxFrames{3};
+
 
 #endif //MODERNCPPDX12RENDERER_PCH_H

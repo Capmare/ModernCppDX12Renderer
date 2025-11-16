@@ -12,66 +12,6 @@ namespace HOX {
     Renderer::Renderer() {
     }
 
-    ComPtr<ID3D12CommandQueue>
-    Renderer::CreateCommandQueue(ComPtr<ID3D12Device10> Device, D3D12_COMMAND_LIST_TYPE Type) {
-        ComPtr<ID3D12CommandQueue> CommandQueue{};
-
-        D3D12_COMMAND_QUEUE_DESC QueueDesc = {};
-        QueueDesc.Type = Type;
-        QueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-        QueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-        QueueDesc.NodeMask = 0;
-
-        HRESULT Hr = Device->CreateCommandQueue(&QueueDesc, IID_PPV_ARGS(&CommandQueue));
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to create command queue.");
-        } else {
-            Logger::LogMessage(Severity::Info, "Created command queue.");
-        }
-
-        return CommandQueue;
-    }
-
-    ComPtr<ID3D12CommandAllocator> Renderer::CreateCommandAllocator(ComPtr<ID3D12Device10> Device,
-                                                                    D3D12_COMMAND_LIST_TYPE Type) {
-        ComPtr<ID3D12CommandAllocator> CommandAllocator{};
-
-        HRESULT Hr = Device->CreateCommandAllocator(Type, IID_PPV_ARGS(&CommandAllocator));
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to create command allocator.");
-        } else {
-            Logger::LogMessage(Severity::Info, "Created command allocator.");
-        }
-
-        return CommandAllocator;
-    }
-
-    ComPtr<ID3D12GraphicsCommandList7> Renderer::CreateCommandList(ComPtr<ID3D12Device10> Device,
-                                                                   ComPtr<ID3D12CommandAllocator> CommandAllocator,
-                                                                   D3D12_COMMAND_LIST_TYPE Type) {
-        ComPtr<ID3D12GraphicsCommandList7> CommandList{};
-
-        HRESULT Hr = Device->CreateCommandList(0, Type, CommandAllocator.Get(), nullptr, IID_PPV_ARGS(&CommandList));
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to create command list.");
-        } else {
-            Logger::LogMessage(Severity::Info, "Created command list.");
-        }
-
-        Hr = CommandList->Close();
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to close command list.");
-        }
-
-        return CommandList;
-    }
-
-    void Renderer::FlushCommands(ComPtr<ID3D12CommandQueue> CommandQueue, ComPtr<ID3D12Fence> Fence,
-                                 uint64_t &FenceValue, HANDLE FenceEvent) {
-        uint64_t FenceValueForSignal{Signal(CommandQueue, Fence, FenceValue)};
-        WaitForFenceValues(Fence, FenceValueForSignal, FenceEvent);
-    }
-
     ComPtr<IDXGISwapChain4> Renderer::CreateSwapChain(HWND Hwnd, ComPtr<ID3D12CommandQueue> CommandQueue,
                                                       uint32_t Width, uint32_t Height, uint32_t BufferCount) {
         ComPtr<IDXGISwapChain4> SwapChain{};
@@ -155,32 +95,6 @@ namespace HOX {
         }
 
         return FenceEvent;
-    }
-
-    uint64_t Renderer::Signal(ComPtr<ID3D12CommandQueue> CommandQueue, ComPtr<ID3D12Fence> Fence, uint64_t FenceValue) {
-        uint64_t SignalValue = ++FenceValue;
-        HRESULT Hr = CommandQueue->Signal(Fence.Get(), SignalValue);
-
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to signal fence.");
-        } else {
-            Logger::LogMessage(Severity::Info, "Signaling fence.");
-        }
-
-        return SignalValue;
-    }
-
-    void Renderer::WaitForFenceValues(ComPtr<ID3D12Fence> Fence, uint64_t FenceValue, HANDLE FenceEvent) {
-        if (Fence->GetCompletedValue() < FenceValue) {
-            HRESULT Hr = Fence->SetEventOnCompletion(FenceValue, FenceEvent);
-            if (FAILED(Hr)) {
-                Logger::LogMessage(Severity::Error, "Failed to set fence event.");
-            } else {
-                Logger::LogMessage(Severity::Info, "Setting fence event.");
-            }
-
-            WaitForSingleObject(FenceEvent, INFINITE);
-        }
     }
 
     void Renderer::SetFullScreen(HWND Hwnd, bool FullScreen) {
@@ -271,9 +185,10 @@ namespace HOX {
 
         m_bTearingSupported = m_DeviceManager->CheckTearingSupport();
 
-        m_CommandQueue = CreateCommandQueue(m_Context->m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+        m_CommandSystem = std::make_unique<CommandSystem>();
+        m_CommandSystem->Initialize(m_Context);
 
-        m_SwapChain = CreateSwapChain(Hwnd, m_CommandQueue, m_WindowWidth, m_WindowHeight, m_MaxFrames);
+        m_SwapChain = CreateSwapChain(Hwnd, m_Context->m_CommandQueue, m_WindowWidth, m_WindowHeight, m_MaxFrames);
 
         m_CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
 
@@ -285,11 +200,13 @@ namespace HOX {
         UpdateRenderTarget(m_Context->m_Device, m_SwapChain, m_RTVDescriptorHeap);
 
         for (uint32_t i = 0; i < m_MaxFrames; i++) {
-            m_CommandAllocators[i] = CreateCommandAllocator(m_Context->m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+            m_CommandAllocators[i] = m_CommandSystem->CreateCommandAllocator(
+                m_Context->m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
         }
 
-        m_CommandList = CreateCommandList(m_Context->m_Device, m_CommandAllocators[m_CurrentBackBufferIndex],
-                                          D3D12_COMMAND_LIST_TYPE_DIRECT);
+        m_CommandList = m_CommandSystem->CreateCommandList(m_Context->m_Device,
+                                                           m_CommandAllocators[m_CurrentBackBufferIndex],
+                                                           D3D12_COMMAND_LIST_TYPE_DIRECT);
 
         m_Fence = CreateFence(m_Context->m_Device);
         m_FenceEvent = CreateFenceEvent();
@@ -341,8 +258,8 @@ namespace HOX {
             ID3D12CommandList *const CommandLists[] = {
                 m_CommandList.Get()
             };
-            m_CommandQueue->ExecuteCommandLists(_countof(CommandLists), CommandLists);
-            m_FrameFenceValues[m_CurrentBackBufferIndex] = Signal(m_CommandQueue, m_Fence, m_FenceValue);
+            m_Context->m_CommandQueue->ExecuteCommandLists(_countof(CommandLists), CommandLists);
+            m_FrameFenceValues[m_CurrentBackBufferIndex] = m_CommandSystem->Signal(m_Context, m_Fence, m_FenceValue);
 
             UINT SyncInterval = m_Context->m_bUseVSync ? 1 : 0;
             UINT PresentFlags = m_bTearingSupported && !m_Context->m_bUseVSync
@@ -353,7 +270,7 @@ namespace HOX {
 
             m_CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
 
-            WaitForFenceValues(m_Fence, m_FrameFenceValues[m_CurrentBackBufferIndex], m_FenceEvent);
+            m_CommandSystem->WaitForFenceValues(m_Fence, m_FrameFenceValues[m_CurrentBackBufferIndex], m_FenceEvent);
         }
     }
 
@@ -381,7 +298,7 @@ namespace HOX {
     }
 
     void Renderer::CleanUpRenderer() {
-        FlushCommands(m_CommandQueue, m_Fence, m_FenceValue, m_FenceEvent);
+        m_CommandSystem->FlushCommands(m_Context, m_Fence, m_FenceValue, m_FenceEvent);
         CloseHandle(m_FenceEvent);
     }
 } // HOX

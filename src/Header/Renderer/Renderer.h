@@ -8,11 +8,11 @@
 
 #include <memory>
 
+#include "../Commands/CommandSystem.h"
 #include "../Device/DeviceManager.h"
 #include "../ResourceManagement/Context.h"
 
 namespace HOX {
-    static constexpr uint8_t m_MaxFrames{3};
 
     class Renderer {
     public:
@@ -36,19 +36,6 @@ namespace HOX {
         uint32_t m_WindowHeight{0};
 
     private:
-        // Commands
-        ComPtr<ID3D12CommandQueue> CreateCommandQueue(ComPtr<ID3D12Device10> Device, D3D12_COMMAND_LIST_TYPE Type);
-        ComPtr<ID3D12CommandAllocator> CreateCommandAllocator(ComPtr<ID3D12Device10> Device,D3D12_COMMAND_LIST_TYPE Type);
-
-        ComPtr<ID3D12GraphicsCommandList7> CreateCommandList(ComPtr<ID3D12Device10> Device,
-                                                             ComPtr<ID3D12CommandAllocator> CommandAllocator,
-                                                             D3D12_COMMAND_LIST_TYPE Type);
-        void FlushCommands(ComPtr<ID3D12CommandQueue> CommandQueue, ComPtr<ID3D12Fence> Fence, uint64_t &FenceValue,HANDLE FenceEvent);
-
-        ComPtr<ID3D12GraphicsCommandList7> m_CommandList{};
-        ComPtr<ID3D12CommandAllocator> m_CommandAllocators[m_MaxFrames]{};
-        ComPtr<ID3D12CommandQueue> m_CommandQueue{};
-
         // Swapchain
         ComPtr<IDXGISwapChain4> CreateSwapChain(HWND Hwnd, ComPtr<ID3D12CommandQueue> CommandQueue, uint32_t Width,
                                                 uint32_t Height, uint32_t BufferCount);
@@ -59,8 +46,6 @@ namespace HOX {
         // Swapchain || Synchronization
         ComPtr<ID3D12Fence> CreateFence(ComPtr<ID3D12Device2> Device);
         HANDLE CreateFenceEvent();
-        uint64_t Signal(ComPtr<ID3D12CommandQueue> CommandQueue, ComPtr<ID3D12Fence> Fence, uint64_t FenceValue);
-        void WaitForFenceValues(ComPtr<ID3D12Fence> Fence, uint64_t FenceValue, HANDLE FenceEvent);
         void SetFullScreen(HWND Hwnd, bool FullScreen);
 
         RECT m_WindowRect{};
@@ -80,6 +65,10 @@ namespace HOX {
 
         std::unique_ptr<Context> m_Context{};
         std::unique_ptr<DeviceManager> m_DeviceManager{};
+        std::unique_ptr<CommandSystem> m_CommandSystem{};
+        ComPtr<ID3D12CommandAllocator> m_CommandAllocators[m_MaxFrames]{};
+        ComPtr<ID3D12GraphicsCommandList7> m_CommandList{};
+
 
         bool m_bTearingSupported{false};
 
