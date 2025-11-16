@@ -5,12 +5,11 @@
 #include "../../Header/Commands/CommandSystem.h"
 
 namespace HOX {
-    void CommandSystem::Initialize(const std::unique_ptr<Context> &Context) {
-        Context->m_CommandQueue = CreateCommandQueue(Context->m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+    void CommandSystem::Initialize() {
+        GetDeviceContext().m_CommandQueue = CreateCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
     }
 
-    ComPtr<ID3D12CommandQueue> CommandSystem::CreateCommandQueue(ComPtr<ID3D12Device10> Device,
-                                                                 D3D12_COMMAND_LIST_TYPE Type) {
+    ComPtr<ID3D12CommandQueue> CommandSystem::CreateCommandQueue(D3D12_COMMAND_LIST_TYPE Type) {
         ComPtr<ID3D12CommandQueue> CommandQueue{};
 
         D3D12_COMMAND_QUEUE_DESC QueueDesc = {};
@@ -19,7 +18,7 @@ namespace HOX {
         QueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
         QueueDesc.NodeMask = 0;
 
-        HRESULT Hr = Device->CreateCommandQueue(&QueueDesc, IID_PPV_ARGS(&CommandQueue));
+        HRESULT Hr = GetDeviceContext().m_Device->CreateCommandQueue(&QueueDesc, IID_PPV_ARGS(&CommandQueue));
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to create command queue.");
         } else {
@@ -29,11 +28,10 @@ namespace HOX {
         return CommandQueue;
     }
 
-    ComPtr<ID3D12CommandAllocator> CommandSystem::CreateCommandAllocator(ComPtr<ID3D12Device10> Device,
-                                                                         D3D12_COMMAND_LIST_TYPE Type) {
+    ComPtr<ID3D12CommandAllocator> CommandSystem::CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE Type) {
         ComPtr<ID3D12CommandAllocator> CommandAllocator{};
 
-        HRESULT Hr = Device->CreateCommandAllocator(Type, IID_PPV_ARGS(&CommandAllocator));
+        HRESULT Hr = GetDeviceContext().m_Device->CreateCommandAllocator(Type, IID_PPV_ARGS(&CommandAllocator));
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to create command allocator.");
         } else {
@@ -63,16 +61,16 @@ namespace HOX {
         return CommandList;
     }
 
-    void CommandSystem::FlushCommands(const std::unique_ptr<Context> &Context, ComPtr<ID3D12Fence> Fence,
+    void CommandSystem::FlushCommands(ComPtr<ID3D12Fence> Fence,
                                       uint64_t &FenceValue, HANDLE FenceEvent) {
-        uint64_t FenceValueForSignal{Signal(Context, Fence, FenceValue)};
+        uint64_t FenceValueForSignal{Signal(Fence, FenceValue)};
         WaitForFenceValues(Fence, FenceValueForSignal, FenceEvent);
     }
 
-    uint64_t CommandSystem::Signal(const std::unique_ptr<Context> &Context, ComPtr<ID3D12Fence> Fence,
+    uint64_t CommandSystem::Signal(ComPtr<ID3D12Fence> Fence,
                                    uint64_t FenceValue) {
         uint64_t SignalValue = ++FenceValue;
-        HRESULT Hr = Context->m_CommandQueue->Signal(Fence.Get(), SignalValue);
+        HRESULT Hr = GetDeviceContext().m_CommandQueue->Signal(Fence.Get(), SignalValue);
 
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to signal fence.");

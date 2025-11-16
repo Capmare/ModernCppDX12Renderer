@@ -8,11 +8,10 @@
 #include "../../Header/Window/WindowBuilder.h"
 
 namespace HOX {
-
-    Window::Window(const HINSTANCE& hInstance, int nCmdShow) {
+    Window::Window(const HINSTANCE &hInstance, int nCmdShow) {
         m_Renderer = std::make_unique<Renderer>();
         m_Window = std::make_unique<HOX::WindowBuilder>("Window Builder")
-               ->SetWindowInstance(hInstance)
+                ->SetWindowInstance(hInstance)
                 .SetWindowClassName("Window Class")
                 .SetWindowTitle("HOX Renderer")
                 .SetWindowProc(WindowThunk)
@@ -24,7 +23,6 @@ namespace HOX {
 
 
         ShowWindow(m_Window, nCmdShow);
-
     }
 
     LRESULT Window::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -44,8 +42,8 @@ namespace HOX {
     }
 
     void Window::Run() {
-        m_Renderer->m_WindowWidth = m_Width;
-        m_Renderer->m_WindowHeight = m_Height;
+        GetDeviceContext().m_WindowWidth = m_Width;
+        GetDeviceContext().m_WindowHeight = m_Height;
 
         m_Renderer->InitializeRenderer(m_Window);
         MSG msg{0};
@@ -70,7 +68,7 @@ namespace HOX {
     }
 
     LRESULT Window::WindowThunk(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-        Window* pThis = reinterpret_cast<Window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+        Window *pThis = reinterpret_cast<Window *>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
         if (pThis) {
             return pThis->WindowProc(hwnd, uMsg, wParam, lParam);
         }

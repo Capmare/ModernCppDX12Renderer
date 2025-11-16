@@ -6,10 +6,10 @@
 
 namespace HOX {
 
-    void DeviceManager::Initialize(const std::unique_ptr<Context> &Context) {
+    void DeviceManager::Initialize() {
         EnableDebugLayer();
-        Context->m_Adapter = QueryDx12Adapter();
-        Context->m_Device = CreateDevice(Context);
+        GetDeviceContext().m_Adapter = QueryDx12Adapter();
+        GetDeviceContext().m_Device = CreateDevice();
 
     }
 
@@ -107,10 +107,10 @@ namespace HOX {
         }
     }
 
-    ComPtr<ID3D12Device10> DeviceManager::CreateDevice(const std::unique_ptr<Context> & Context) {
+    ComPtr<ID3D12Device10> DeviceManager::CreateDevice() {
         ComPtr<ID3D12Device10> Device{};
 
-        HRESULT Hr = D3D12CreateDevice(Context->m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2,IID_PPV_ARGS(&Device));
+        HRESULT Hr = D3D12CreateDevice(GetDeviceContext().m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2,IID_PPV_ARGS(&Device));
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to create D3D12 device.");
         } else {

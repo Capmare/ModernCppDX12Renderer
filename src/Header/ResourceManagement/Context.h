@@ -21,11 +21,14 @@ namespace HOX {
         Context(Context&&) = delete;
         Context& operator=(Context&&) = delete;
 
+        HWND Hwnd{};
         ComPtr<ID3D12Device10> m_Device{};
         ComPtr<IDXGIAdapter4> m_Adapter{};
         std::unique_ptr<HOX::Cleaner> m_Cleaner;
         ComPtr<ID3D12CommandQueue> m_CommandQueue{};
 
+        uint32_t m_WindowWidth{0};
+        uint32_t m_WindowHeight{0};
 
         bool m_bUseVSync{false};
         bool m_bTearingSupported{false};

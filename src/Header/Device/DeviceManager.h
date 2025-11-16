@@ -23,14 +23,14 @@ public:
     DeviceManager& operator=(const DeviceManager&) = delete;
     DeviceManager& operator=(DeviceManager&&) noexcept = delete;
 
-    void Initialize(const std::unique_ptr<Context>& Context);
+    void Initialize();
 
     bool CheckTearingSupport();
 
 private:
     void EnableDebugLayer();
     ComPtr<IDXGIAdapter4> QueryDx12Adapter();
-    ComPtr<ID3D12Device10> CreateDevice(const std::unique_ptr<Context> &Context);
+    ComPtr<ID3D12Device10> CreateDevice();
 
     bool m_bUseWarp{};
 

@@ -12,68 +12,6 @@ namespace HOX {
     Renderer::Renderer() {
     }
 
-    ComPtr<IDXGISwapChain4> Renderer::CreateSwapChain(HWND Hwnd, ComPtr<ID3D12CommandQueue> CommandQueue,
-                                                      uint32_t Width, uint32_t Height, uint32_t BufferCount) {
-        ComPtr<IDXGISwapChain4> SwapChain{};
-        ComPtr<IDXGIFactory4> Factory{};
-
-        UINT CreateFactoryFlags = 0;
-
-#ifdef _DEBUG
-        CreateFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
-#endif
-
-        HRESULT Hr = CreateDXGIFactory2(CreateFactoryFlags, IID_PPV_ARGS(&Factory));
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to create DXGIFactory2.");
-        } else {
-            Logger::LogMessage(Severity::Info, "Created DXGIFactory2.");
-        }
-
-
-        DXGI_SWAP_CHAIN_DESC1 SwapChainDesc{};
-        SwapChainDesc.Width = Width;
-        SwapChainDesc.Height = Height;
-        SwapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        SwapChainDesc.Stereo = FALSE;
-        SwapChainDesc.SampleDesc = {1, 0};
-        SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-        SwapChainDesc.BufferCount = BufferCount;
-        SwapChainDesc.Scaling = DXGI_SCALING_STRETCH;
-        SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-        SwapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-        SwapChainDesc.Flags = /*CheckTearingSupport() ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING :*/ 0;
-
-        ComPtr<IDXGISwapChain1> SwapChain1{};
-        Hr = Factory->CreateSwapChainForHwnd(
-            CommandQueue.Get(),
-            Hwnd,
-            &SwapChainDesc,
-            nullptr,
-            nullptr,
-            &SwapChain1);
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to create swap chain.");
-        }
-
-        // Disable alt enter
-        Hr = Factory->MakeWindowAssociation(Hwnd,DXGI_MWA_NO_ALT_ENTER);
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to make window association.");
-        } else {
-            Logger::LogMessage(Severity::Info, "Created swap chain.");
-        }
-
-        Hr = SwapChain1.As(&SwapChain);
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to get swap chain.");
-        } else {
-            Logger::LogMessage(Severity::Info, "Created swap chain.");
-        }
-
-        return SwapChain;
-    }
-
     ComPtr<ID3D12Fence> Renderer::CreateFence(ComPtr<ID3D12Device2> Device) {
         ComPtr<ID3D12Fence> Fence{};
         HRESULT Hr = Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence));
@@ -169,7 +107,7 @@ namespace HOX {
             }
 
             Device->CreateRenderTargetView(BackBuffer.Get(), nullptr, RtvHandle);
-            BackBuffers[i] = BackBuffer;
+            m_SwapChain->UpdateBackBuffer(BackBuffer,i);
 
             RtvHandle.ptr += RTVDescriptorSize;
         }
@@ -177,44 +115,43 @@ namespace HOX {
 
 
     void Renderer::InitializeRenderer(HWND Hwnd) {
-        m_Context = std::make_unique<Context>();
+        GetDeviceContext().Hwnd = Hwnd;
 
         m_DeviceManager = std::make_unique<DeviceManager>();
-        m_DeviceManager->Initialize(m_Context);
+        m_DeviceManager->Initialize();
 
 
         m_bTearingSupported = m_DeviceManager->CheckTearingSupport();
 
         m_CommandSystem = std::make_unique<CommandSystem>();
-        m_CommandSystem->Initialize(m_Context);
+        m_CommandSystem->Initialize();
 
-        m_SwapChain = CreateSwapChain(Hwnd, m_Context->m_CommandQueue, m_WindowWidth, m_WindowHeight, m_MaxFrames);
+        m_SwapChain = std::make_unique<Swapchain>();
+        m_SwapChain->Initialize();
 
-        m_CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
-
-        m_RTVDescriptorHeap = CreateDescriptorHeap(m_Context->m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+        m_RTVDescriptorHeap = CreateDescriptorHeap(GetDeviceContext().m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
                                                    m_MaxFrames);
-        m_RTVDescriptorSize = m_Context->m_Device->GetDescriptorHandleIncrementSize(
+        m_RTVDescriptorSize = GetDeviceContext().m_Device->GetDescriptorHandleIncrementSize(
             D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-        UpdateRenderTarget(m_Context->m_Device, m_SwapChain, m_RTVDescriptorHeap);
+        UpdateRenderTarget(GetDeviceContext().m_Device, m_SwapChain->GetSwapChain(), m_RTVDescriptorHeap);
 
         for (uint32_t i = 0; i < m_MaxFrames; i++) {
             m_CommandAllocators[i] = m_CommandSystem->CreateCommandAllocator(
-                m_Context->m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+                D3D12_COMMAND_LIST_TYPE_DIRECT);
         }
 
-        m_CommandList = m_CommandSystem->CreateCommandList(m_Context->m_Device,
-                                                           m_CommandAllocators[m_CurrentBackBufferIndex],
+        m_CommandList = m_CommandSystem->CreateCommandList(GetDeviceContext().m_Device,
+                                                           m_CommandAllocators[m_SwapChain->GetCurrentBackBufferIndex()],
                                                            D3D12_COMMAND_LIST_TYPE_DIRECT);
 
-        m_Fence = CreateFence(m_Context->m_Device);
+        m_Fence = CreateFence(GetDeviceContext().m_Device);
         m_FenceEvent = CreateFenceEvent();
     }
 
     void Renderer::Render() {
-        auto CommandAllocator = m_CommandAllocators[m_CurrentBackBufferIndex];
-        auto BackBuffer = BackBuffers[m_CurrentBackBufferIndex];
+        auto CommandAllocator = m_CommandAllocators[m_SwapChain->GetCurrentBackBufferIndex()];
+        auto BackBuffer = m_SwapChain->GetCurrentBackBuffer();
 
         HRESULT Hr = CommandAllocator->Reset();
         if (FAILED(Hr)) {
@@ -240,7 +177,7 @@ namespace HOX {
             };
             CD3DX12_CPU_DESCRIPTOR_HANDLE RTV(
                 m_RTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-                m_CurrentBackBufferIndex, m_RTVDescriptorSize
+                m_SwapChain->GetCurrentBackBufferIndex(), m_RTVDescriptorSize
 
             );
             m_CommandList->ClearRenderTargetView(RTV, ClearColor, 0, nullptr);
@@ -258,19 +195,17 @@ namespace HOX {
             ID3D12CommandList *const CommandLists[] = {
                 m_CommandList.Get()
             };
-            m_Context->m_CommandQueue->ExecuteCommandLists(_countof(CommandLists), CommandLists);
-            m_FrameFenceValues[m_CurrentBackBufferIndex] = m_CommandSystem->Signal(m_Context, m_Fence, m_FenceValue);
+            GetDeviceContext().m_CommandQueue->ExecuteCommandLists(_countof(CommandLists), CommandLists);
+            m_FrameFenceValues[m_SwapChain->GetCurrentBackBufferIndex()] = m_CommandSystem->Signal(m_Fence, m_FenceValue);
 
-            UINT SyncInterval = m_Context->m_bUseVSync ? 1 : 0;
-            UINT PresentFlags = m_bTearingSupported && !m_Context->m_bUseVSync
+            UINT SyncInterval = GetDeviceContext().m_bUseVSync ? 1 : 0;
+            UINT PresentFlags = m_bTearingSupported && !GetDeviceContext().m_bUseVSync
                                     ? DXGI_PRESENT_ALLOW_TEARING
                                     : 0;
 
-            m_SwapChain->Present(SyncInterval, PresentFlags);
+            m_SwapChain->GetSwapChain()->Present(SyncInterval, PresentFlags);
 
-            m_CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
-
-            m_CommandSystem->WaitForFenceValues(m_Fence, m_FrameFenceValues[m_CurrentBackBufferIndex], m_FenceEvent);
+            m_CommandSystem->WaitForFenceValues(m_Fence, m_FrameFenceValues[m_SwapChain->GetCurrentBackBufferIndex()], m_FenceEvent);
         }
     }
 
@@ -298,7 +233,7 @@ namespace HOX {
     }
 
     void Renderer::CleanUpRenderer() {
-        m_CommandSystem->FlushCommands(m_Context, m_Fence, m_FenceValue, m_FenceEvent);
+        m_CommandSystem->FlushCommands(m_Fence, m_FenceValue, m_FenceEvent);
         CloseHandle(m_FenceEvent);
     }
 } // HOX

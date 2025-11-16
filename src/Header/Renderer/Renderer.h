@@ -11,6 +11,7 @@
 #include "../Commands/CommandSystem.h"
 #include "../Device/DeviceManager.h"
 #include "../ResourceManagement/Context.h"
+#include "../Swapchain/Swapchain.h"
 
 namespace HOX {
 
@@ -31,17 +32,8 @@ namespace HOX {
         void Update();
         void CleanUpRenderer();
 
-
-        uint32_t m_WindowWidth{0};
-        uint32_t m_WindowHeight{0};
-
     private:
         // Swapchain
-        ComPtr<IDXGISwapChain4> CreateSwapChain(HWND Hwnd, ComPtr<ID3D12CommandQueue> CommandQueue, uint32_t Width,
-                                                uint32_t Height, uint32_t BufferCount);
-        ComPtr<ID3D12Resource> BackBuffers[m_MaxFrames]{};
-        UINT m_CurrentBackBufferIndex{};
-        ComPtr<IDXGISwapChain4> m_SwapChain{};
 
         // Swapchain || Synchronization
         ComPtr<ID3D12Fence> CreateFence(ComPtr<ID3D12Device2> Device);
@@ -63,12 +55,12 @@ namespace HOX {
         ComPtr<ID3D12DescriptorHeap> m_RTVDescriptorHeap{};
         UINT m_RTVDescriptorSize{};
 
-        std::unique_ptr<Context> m_Context{};
         std::unique_ptr<DeviceManager> m_DeviceManager{};
         std::unique_ptr<CommandSystem> m_CommandSystem{};
         ComPtr<ID3D12CommandAllocator> m_CommandAllocators[m_MaxFrames]{};
         ComPtr<ID3D12GraphicsCommandList7> m_CommandList{};
 
+        std::unique_ptr<Swapchain> m_SwapChain{};
 
         bool m_bTearingSupported{false};
 
