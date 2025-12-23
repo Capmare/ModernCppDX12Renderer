@@ -27,6 +27,8 @@ using Microsoft::WRL::ComPtr;
 
 // Usual includes
 #include "../src/Header/Logger/Logger.h"
+#include "../src/Header/Commands/CommandSystem.h"
+#include "../src/Header/Fence/Fence.h"
 #include "../src/Header/ResourceManagement/Context.h"
 
 

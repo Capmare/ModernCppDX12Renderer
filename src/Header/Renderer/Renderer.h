@@ -10,6 +10,7 @@
 
 #include "../Commands/CommandSystem.h"
 #include "../Device/DeviceManager.h"
+#include "../Fence/Fence.h"
 #include "../ResourceManagement/Context.h"
 #include "../Swapchain/Swapchain.h"
 
@@ -32,19 +33,13 @@ namespace HOX {
         void Update();
         void CleanUpRenderer();
 
+        void ResizeWindow(const uint32_t Width, const uint32_t Height);
     private:
-        // Swapchain
-
         // Swapchain || Synchronization
-        ComPtr<ID3D12Fence> CreateFence(ComPtr<ID3D12Device2> Device);
-        HANDLE CreateFenceEvent();
+        std::unique_ptr<HOX::Fence> m_Fence{};
         void SetFullScreen(HWND Hwnd, bool FullScreen);
 
         RECT m_WindowRect{};
-        uint64_t m_FrameFenceValues[m_MaxFrames]{};
-        ComPtr<ID3D12Fence> m_Fence{};
-        HANDLE m_FenceEvent{};
-        uint64_t m_FenceValue{};
         bool m_bFullScreen{false};
 
         // Descriptor heap (descriptor sets in vulkan)
@@ -56,7 +51,6 @@ namespace HOX {
         UINT m_RTVDescriptorSize{};
 
         std::unique_ptr<DeviceManager> m_DeviceManager{};
-        std::unique_ptr<CommandSystem> m_CommandSystem{};
         ComPtr<ID3D12CommandAllocator> m_CommandAllocators[m_MaxFrames]{};
         ComPtr<ID3D12GraphicsCommandList7> m_CommandList{};
 

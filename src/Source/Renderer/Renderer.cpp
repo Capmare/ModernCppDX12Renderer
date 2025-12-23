@@ -4,6 +4,8 @@
 
 #include "../../Header/Renderer/Renderer.h"
 #include <chrono>
+#include <random>
+
 #include "../../pch.h"
 
 #include "../../Helpers.h"
@@ -12,28 +14,6 @@ namespace HOX {
     Renderer::Renderer() {
     }
 
-    ComPtr<ID3D12Fence> Renderer::CreateFence(ComPtr<ID3D12Device2> Device) {
-        ComPtr<ID3D12Fence> Fence{};
-        HRESULT Hr = Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence));
-        if (FAILED(Hr)) {
-            Logger::LogMessage(Severity::Error, "Failed to create fence.");
-        } else {
-            Logger::LogMessage(Severity::Info, "Created fence.");
-        }
-
-        return Fence;
-    }
-
-    HANDLE Renderer::CreateFenceEvent() {
-        HANDLE FenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);\
-        if (FenceEvent == nullptr) {
-            Logger::LogMessage(Severity::Error, "Failed to create fence event.");
-        } else {
-            Logger::LogMessage(Severity::Info, "Created fence event.");
-        }
-
-        return FenceEvent;
-    }
 
     void Renderer::SetFullScreen(HWND Hwnd, bool FullScreen) {
         if (m_bFullScreen != FullScreen) {
@@ -120,11 +100,10 @@ namespace HOX {
         m_DeviceManager = std::make_unique<DeviceManager>();
         m_DeviceManager->Initialize();
 
-
         m_bTearingSupported = m_DeviceManager->CheckTearingSupport();
 
-        m_CommandSystem = std::make_unique<CommandSystem>();
-        m_CommandSystem->Initialize();
+        GetDeviceContext().m_CommandSystem = std::make_unique<CommandSystem>();
+        GetDeviceContext().m_CommandSystem->Initialize();
 
         m_SwapChain = std::make_unique<Swapchain>();
         m_SwapChain->Initialize();
@@ -137,20 +116,25 @@ namespace HOX {
         UpdateRenderTarget(GetDeviceContext().m_Device, m_SwapChain->GetSwapChain(), m_RTVDescriptorHeap);
 
         for (uint32_t i = 0; i < m_MaxFrames; i++) {
-            m_CommandAllocators[i] = m_CommandSystem->CreateCommandAllocator(
+            m_CommandAllocators[i] = GetDeviceContext().m_CommandSystem->CreateCommandAllocator(
                 D3D12_COMMAND_LIST_TYPE_DIRECT);
         }
 
-        m_CommandList = m_CommandSystem->CreateCommandList(GetDeviceContext().m_Device,
+        m_CommandList = GetDeviceContext().m_CommandSystem->CreateCommandList(GetDeviceContext().m_Device,
                                                            m_CommandAllocators[m_SwapChain->GetCurrentBackBufferIndex()],
                                                            D3D12_COMMAND_LIST_TYPE_DIRECT);
 
-        m_Fence = CreateFence(GetDeviceContext().m_Device);
-        m_FenceEvent = CreateFenceEvent();
+
+        // Create fence
+        m_Fence = std::make_unique<Fence>();
+
+        m_SwapChain->Resize(m_Fence.get(),480,480);
+        UpdateRenderTarget(GetDeviceContext().m_Device, m_SwapChain->GetSwapChain(), m_RTVDescriptorHeap);
     }
 
     void Renderer::Render() {
-        auto CommandAllocator = m_CommandAllocators[m_SwapChain->GetCurrentBackBufferIndex()];
+        const auto BackBufferIdx = m_SwapChain->GetCurrentBackBufferIndex();
+        auto CommandAllocator = m_CommandAllocators[BackBufferIdx];
         auto BackBuffer = m_SwapChain->GetCurrentBackBuffer();
 
         HRESULT Hr = CommandAllocator->Reset();
@@ -172,15 +156,22 @@ namespace HOX {
             };
             m_CommandList->ResourceBarrier(1, &ResourceBarrier);
 
-            FLOAT ClearColor[4] = {
-                .4f, .4f, .4f, 1.f
+            FLOAT ClearColor[4] =
+            {
+                .4f,
+                .4f,
+                .4f,
+                1.0f
             };
+
+
             CD3DX12_CPU_DESCRIPTOR_HANDLE RTV(
                 m_RTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
                 m_SwapChain->GetCurrentBackBufferIndex(), m_RTVDescriptorSize
 
             );
             m_CommandList->ClearRenderTargetView(RTV, ClearColor, 0, nullptr);
+
         }
 
         // Present to screen
@@ -196,7 +187,7 @@ namespace HOX {
                 m_CommandList.Get()
             };
             GetDeviceContext().m_CommandQueue->ExecuteCommandLists(_countof(CommandLists), CommandLists);
-            m_FrameFenceValues[m_SwapChain->GetCurrentBackBufferIndex()] = m_CommandSystem->Signal(m_Fence, m_FenceValue);
+            m_SwapChain->m_FrameFenceValues[m_SwapChain->GetCurrentBackBufferIndex()] = GetDeviceContext().m_CommandSystem->Signal(m_Fence->GetFence(), m_Fence->GetFenceValue());
 
             UINT SyncInterval = GetDeviceContext().m_bUseVSync ? 1 : 0;
             UINT PresentFlags = m_bTearingSupported && !GetDeviceContext().m_bUseVSync
@@ -205,8 +196,9 @@ namespace HOX {
 
             m_SwapChain->GetSwapChain()->Present(SyncInterval, PresentFlags);
 
-            m_CommandSystem->WaitForFenceValues(m_Fence, m_FrameFenceValues[m_SwapChain->GetCurrentBackBufferIndex()], m_FenceEvent);
+            GetDeviceContext().m_CommandSystem->WaitForFenceValues(m_Fence->GetFence(), m_SwapChain->m_FrameFenceValues[m_SwapChain->GetCurrentBackBufferIndex()], m_Fence->GetFenceEvent());
         }
+
     }
 
     void Renderer::Update() {
@@ -233,7 +225,15 @@ namespace HOX {
     }
 
     void Renderer::CleanUpRenderer() {
-        m_CommandSystem->FlushCommands(m_Fence, m_FenceValue, m_FenceEvent);
-        CloseHandle(m_FenceEvent);
+        GetDeviceContext().m_CommandSystem->FlushCommands(m_Fence->GetFence(), m_Fence->GetFenceValue(), m_Fence->GetFenceEvent());
+        CloseHandle(m_Fence->GetFenceEvent());
+    }
+
+    void Renderer::ResizeWindow(const uint32_t Width, const uint32_t Height) {
+        if (!m_SwapChain) { Logger::LogMessage(Severity::ErrorNoCrash, "Failed to resize window due to swapchain."); return; }
+        if (!m_Fence) { Logger::LogMessage(Severity::ErrorNoCrash, "Failed to resize window due to fence."); return; }
+
+        m_SwapChain->Resize(m_Fence.get(),Width, Height);
+
     }
 } // HOX

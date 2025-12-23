@@ -7,6 +7,7 @@
 namespace HOX {
     void CommandSystem::Initialize() {
         GetDeviceContext().m_CommandQueue = CreateCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
+
     }
 
     ComPtr<ID3D12CommandQueue> CommandSystem::CreateCommandQueue(D3D12_COMMAND_LIST_TYPE Type) {
@@ -24,6 +25,7 @@ namespace HOX {
         } else {
             Logger::LogMessage(Severity::Info, "Created command queue.");
         }
+
 
         return CommandQueue;
     }

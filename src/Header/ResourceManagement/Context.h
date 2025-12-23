@@ -10,6 +10,7 @@
 #include "Cleaner.h"
 
 namespace HOX {
+
     class Context {
     public:
         Context();
@@ -22,10 +23,14 @@ namespace HOX {
         Context& operator=(Context&&) = delete;
 
         HWND Hwnd{};
+
         ComPtr<ID3D12Device10> m_Device{};
         ComPtr<IDXGIAdapter4> m_Adapter{};
-        std::unique_ptr<HOX::Cleaner> m_Cleaner;
         ComPtr<ID3D12CommandQueue> m_CommandQueue{};
+
+        std::unique_ptr<HOX::Cleaner> m_Cleaner;
+        std::unique_ptr<HOX::CommandSystem> m_CommandSystem{};
+
 
         uint32_t m_WindowWidth{0};
         uint32_t m_WindowHeight{0};

@@ -7,6 +7,8 @@
 namespace HOX {
     Context::Context() {
         m_Cleaner = std::make_unique<HOX::Cleaner>();
+        m_CommandSystem = std::make_unique<HOX::CommandSystem>();
+
     }
 
     Context & GetDeviceContext() {

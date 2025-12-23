@@ -4,14 +4,41 @@
 
 #include "../../Header/Swapchain/Swapchain.h"
 
+#include "../../Helpers.h"
+#include "../../Header/Fence/Fence.h"
+
 namespace HOX {
+
     void Swapchain::Initialize() {
         m_SwapChain = CreateSwapChain(m_MaxFrames);
     }
 
+    void Swapchain::Resize(HOX::Fence* CurrentFence, const uint32_t Width, const uint32_t Height) {
+        if (Width != GetDeviceContext().m_WindowWidth || Height != GetDeviceContext().m_WindowHeight) {
+            GetDeviceContext().m_WindowWidth = std::max(1u, Width);
+            GetDeviceContext().m_WindowHeight = std::max(1u, Height);
+
+            // Flush commands
+            GetDeviceContext().m_CommandSystem->FlushCommands(CurrentFence->GetFence(),CurrentFence->GetFenceValue(),CurrentFence->GetFenceEvent());
+
+
+            for (size_t idx = 0; idx < m_MaxFrames; ++idx) {
+                m_BackBuffers[idx].Reset();
+                m_FrameFenceValues[idx] = m_FrameFenceValues[GetCurrentBackBufferIndex()];
+
+            }
+            DXGI_SWAP_CHAIN_DESC SwapChainDesc = {};
+            ThrowIfFailed(m_SwapChain->GetDesc(&SwapChainDesc));
+            ThrowIfFailed(m_SwapChain->ResizeBuffers(
+                m_MaxFrames,GetDeviceContext().m_WindowWidth,GetDeviceContext().m_WindowHeight,
+                SwapChainDesc.BufferDesc.Format,SwapChainDesc.Flags
+                ));
+        }
+    }
+
 
     void Swapchain::UpdateBackBuffer(const ComPtr<ID3D12Resource2> &NewBackBuffer, uint8_t Location) {
-        BackBuffers[Location] = NewBackBuffer;
+        m_BackBuffers[Location] = NewBackBuffer;
     }
 
     ComPtr<IDXGISwapChain4> Swapchain::CreateSwapChain(uint32_t BufferCount) {

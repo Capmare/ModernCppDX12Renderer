@@ -33,7 +33,19 @@ namespace HOX {
             case WM_PAINT:
                 m_Renderer->Update();
                 m_Renderer->Render();
+                break;
+            case WM_SIZE:
+            {
+                RECT clientRect = {};
+                GetClientRect(hwnd, &clientRect);
 
+                uint32_t Width = clientRect.right - clientRect.left;
+                uint32_t Height = clientRect.bottom - clientRect.top;
+
+                m_Renderer->ResizeWindow(Width, Height);
+            }
+
+                break;
             default:
                 return DefWindowProc(hwnd, uMsg, wParam, lParam);
         }
