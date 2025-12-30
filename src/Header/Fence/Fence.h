@@ -14,7 +14,7 @@ namespace HOX {
         ~Fence();
 
 
-        // Prevent copy and move
+        // Prevent copy and move2
         Fence(const Fence&) = delete;
         Fence& operator=(const Fence&) = delete;
         Fence(Fence&&) = delete;

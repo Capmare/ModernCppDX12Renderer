@@ -3,6 +3,7 @@
 //
 
 #include "../../Header/Device/DeviceManager.h"
+#include <dxgidebug.h>
 
 namespace HOX {
 
@@ -15,14 +16,62 @@ namespace HOX {
 
     void DeviceManager::EnableDebugLayer() {
 #ifdef _DEBUG
-        ComPtr<ID3D12Debug> DebugInterface{};
-        if (FAILED(D3D12GetDebugInterface(IID_PPV_ARGS(&DebugInterface)))) {
-            HOX::Logger::LogMessage(Severity::Error, "Failed to get D3D12 debug layer.");
-        } else {
-            Logger::LogMessage(Severity::Info, "D3D12 debug layer enabled.");
+        ComPtr<ID3D12Debug1> debugController;
+        ComPtr<IDXGIInfoQueue> infoQueue;
+
+        if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))) &&
+            SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&infoQueue)))) {
+
+            debugController->EnableDebugLayer();
+            debugController->SetEnableGPUBasedValidation(TRUE);
+            debugController->SetEnableSynchronizedCommandQueueValidation(TRUE);
+
+            infoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_ERROR, TRUE);
+            infoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+
+            HOX::Logger::LogMessage(HOX::Severity::Info, "D3D12 debug layer enabled.");
+            return;
+            }
+
+        HOX::Logger::LogMessage(HOX::Severity::Error, "Failed to get D3D12 debug layer.");
+#endif
+    }
+
+
+    void DeviceManager::PrintDebugMessages(ID3D12Device* device) {
+#ifdef _DEBUG
+        ComPtr<ID3D12InfoQueue> infoQueue;
+        if (FAILED(device->QueryInterface(IID_PPV_ARGS(&infoQueue))))
+            return;
+
+        UINT64 numMessages = infoQueue->GetNumStoredMessages();
+        for (UINT64 i = 0; i < numMessages; ++i) {
+            SIZE_T messageLength = 0;
+            infoQueue->GetMessage(i, nullptr, &messageLength);
+
+            std::vector<char> messageData(messageLength);
+            D3D12_MESSAGE* msg = reinterpret_cast<D3D12_MESSAGE*>(messageData.data());
+            infoQueue->GetMessage(i, msg, &messageLength);
+
+            HOX::Severity sev = HOX::Severity::Info;
+            switch (msg->Severity) {
+                case D3D12_MESSAGE_SEVERITY_CORRUPTION:
+                case D3D12_MESSAGE_SEVERITY_ERROR:
+                    sev = HOX::Severity::ErrorNoCrash; // Use non-crashing error for logging
+                    break;
+                case D3D12_MESSAGE_SEVERITY_WARNING:
+                    sev = HOX::Severity::Warning;
+                    break;
+                case D3D12_MESSAGE_SEVERITY_INFO:
+                case D3D12_MESSAGE_SEVERITY_MESSAGE:
+                    sev = HOX::Severity::Info;
+                    break;
+            }
+
+            HOX::Logger::LogMessage(sev, std::string("[D3D12 DEBUG] ") + msg->pDescription);
         }
 
-        DebugInterface->EnableDebugLayer();
+        infoQueue->ClearStoredMessages();
 #endif
     }
 

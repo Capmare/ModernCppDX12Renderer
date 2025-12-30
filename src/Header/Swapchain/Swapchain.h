@@ -5,6 +5,8 @@
 #ifndef SWAPCHAIN_H
 #define SWAPCHAIN_H
 
+#include <array>
+
 #include "../../pch.h"
 
 
@@ -29,14 +31,15 @@ public:
 
     uint8_t GetCurrentBackBufferIndex() const { return m_SwapChain->GetCurrentBackBufferIndex(); }
     ComPtr<IDXGISwapChain4> GetSwapChain() const { return m_SwapChain; }
-    ComPtr<ID3D12Resource> GetCurrentBackBuffer() const { return m_BackBuffers[m_SwapChain->GetCurrentBackBufferIndex()]; }
+    ComPtr<ID3D12Resource> GetCurrentBackBuffer() const { return m_BackBuffers.at(m_SwapChain->GetCurrentBackBufferIndex()); }
+    ComPtr<ID3D12Resource> GetBackBuffer(uint32_t Idx) const { return m_BackBuffers.at(Idx); }
     void UpdateBackBuffer(const ComPtr<ID3D12Resource2> &NewBackBuffer, uint8_t Location);
 
     uint64_t m_FrameFenceValues[m_MaxFrames]{};
 
 private:
     ComPtr<IDXGISwapChain4> CreateSwapChain(uint32_t BufferCount);
-    ComPtr<ID3D12Resource> m_BackBuffers[m_MaxFrames]{};
+    std::array<ComPtr<ID3D12Resource>,m_MaxFrames> m_BackBuffers{};
     ComPtr<IDXGISwapChain4> m_SwapChain{};
 
 

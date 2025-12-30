@@ -3,6 +3,8 @@
 //
 
 #include "../../Header/Renderer/Renderer.h"
+
+#include <array>
 #include <chrono>
 #include <random>
 
@@ -97,6 +99,7 @@ namespace HOX {
     void Renderer::InitializeRenderer(HWND Hwnd) {
         GetDeviceContext().Hwnd = Hwnd;
 
+        // Query adapter and create device
         m_DeviceManager = std::make_unique<DeviceManager>();
         m_DeviceManager->Initialize();
 
@@ -125,81 +128,134 @@ namespace HOX {
                                                            D3D12_COMMAND_LIST_TYPE_DIRECT);
 
 
-        // Create fence
+        // Create fence and event handle
         m_Fence = std::make_unique<Fence>();
+        if (!m_Fence) {
+            Logger::LogMessage(Severity::Error, "Failed to create fence.");
+        }
 
-        m_SwapChain->Resize(m_Fence.get(),480,480);
-        UpdateRenderTarget(GetDeviceContext().m_Device, m_SwapChain->GetSwapChain(), m_RTVDescriptorHeap);
+
+
+        ResizeSwapChain(GetDeviceContext().m_WindowWidth, GetDeviceContext().m_WindowHeight);
+
+        DeviceManager::PrintDebugMessages(GetDeviceContext().m_Device.Get());
     }
 
-    void Renderer::Render() {
-        const auto BackBufferIdx = m_SwapChain->GetCurrentBackBufferIndex();
-        auto CommandAllocator = m_CommandAllocators[BackBufferIdx];
-        auto BackBuffer = m_SwapChain->GetCurrentBackBuffer();
 
+    void Renderer::Render() {
+        // Get current frame index from the swap chain
+        auto CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
+
+        // Grab the command allocator and back buffer for this frame
+        auto CommandAllocator = m_CommandAllocators[CurrentBackBufferIndex];
+        auto BackBuffer = m_SwapChain->GetBackBuffer(CurrentBackBufferIndex);
+
+        // Safety checks
+        if (!BackBuffer) {
+            Logger::LogMessage(Severity::Error, "BackBuffer is null at frame index " + std::to_string(CurrentBackBufferIndex));
+            return;
+        }
+        if (!CommandAllocator) {
+            Logger::LogMessage(Severity::Error,
+                               "CommandAllocator is null at frame index " + std::to_string(CurrentBackBufferIndex));
+            return;
+        }
+        if (!m_CommandList) {
+            Logger::LogMessage(Severity::Error, "CommandList is null");
+            return;
+        }
+        if (!m_RTVDescriptorHeap) {
+            Logger::LogMessage(Severity::Error, "RTV Descriptor Heap is null");
+            return;
+        }
+
+        GetDeviceContext().m_CommandSystem->WaitForFenceValues(
+             m_Fence->GetFence(),
+             m_SwapChain->m_FrameFenceValues[CurrentBackBufferIndex],
+             m_Fence->GetFenceEvent()
+         );
+
+        // Reset allocator
         HRESULT Hr = CommandAllocator->Reset();
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to reset command allocator.");
+            return;
         }
 
+        // Reset command list
         Hr = m_CommandList->Reset(CommandAllocator.Get(), nullptr);
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to reset command list.");
+            return;
         }
 
-        // Clear render target
         {
-            D3D12_RESOURCE_BARRIER ResourceBarrier{
-                CD3DX12_RESOURCE_BARRIER::Transition(
-                    BackBuffer.Get(),
-                    D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET)
-            };
-            m_CommandList->ResourceBarrier(1, &ResourceBarrier);
+            // Transition back buffer to render target
+            CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+                BackBuffer.Get(),
+                D3D12_RESOURCE_STATE_PRESENT,
+                D3D12_RESOURCE_STATE_RENDER_TARGET
+            );
+            m_CommandList->ResourceBarrier(1, &barrier);
 
-            FLOAT ClearColor[4] =
-            {
-                .4f,
-                .4f,
-                .4f,
-                1.0f
-            };
+            const FLOAT clearColor[4] = {0.4f, 0.4f, 0.4f, 1.0f};
 
-
+            // Clear render target
             CD3DX12_CPU_DESCRIPTOR_HANDLE RTV(
                 m_RTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-                m_SwapChain->GetCurrentBackBufferIndex(), m_RTVDescriptorSize
-
+                CurrentBackBufferIndex,
+                m_RTVDescriptorSize
             );
-            m_CommandList->ClearRenderTargetView(RTV, ClearColor, 0, nullptr);
 
+            m_CommandList->ClearRenderTargetView(RTV, clearColor, 0, nullptr);
         }
 
-        // Present to screen
         {
-            CD3DX12_RESOURCE_BARRIER ResourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            // Transition back buffer to present
+            CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
                 BackBuffer.Get(),
-                D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-            m_CommandList->ResourceBarrier(1, &ResourceBarrier);
+                D3D12_RESOURCE_STATE_RENDER_TARGET,
+                D3D12_RESOURCE_STATE_PRESENT
+            );
+            m_CommandList->ResourceBarrier(1, &barrier);
 
-            ThrowIfFailed(m_CommandList->Close());
+            // Close command list
+            Hr = m_CommandList->Close();
+            if (FAILED(Hr)) {
+                Logger::LogMessage(Severity::Error, "Failed to close command list.");
+                return;
+            }
 
-            ID3D12CommandList *const CommandLists[] = {
-                m_CommandList.Get()
-            };
-            GetDeviceContext().m_CommandQueue->ExecuteCommandLists(_countof(CommandLists), CommandLists);
-            m_SwapChain->m_FrameFenceValues[m_SwapChain->GetCurrentBackBufferIndex()] = GetDeviceContext().m_CommandSystem->Signal(m_Fence->GetFence(), m_Fence->GetFenceValue());
+            // Execute command list
+            ID3D12CommandList *Lists[] = {m_CommandList.Get()};
+            GetDeviceContext().m_CommandQueue->ExecuteCommandLists(_countof(Lists), Lists);
 
-            UINT SyncInterval = GetDeviceContext().m_bUseVSync ? 1 : 0;
-            UINT PresentFlags = m_bTearingSupported && !GetDeviceContext().m_bUseVSync
-                                    ? DXGI_PRESENT_ALLOW_TEARING
-                                    : 0;
+            // Signal fence for this frame
+            m_SwapChain->m_FrameFenceValues[CurrentBackBufferIndex] = GetDeviceContext().m_CommandSystem->Signal(
+                m_Fence->GetFence(),
+                m_Fence->GetFenceValue()
+            );
 
-            m_SwapChain->GetSwapChain()->Present(SyncInterval, PresentFlags);
 
-            GetDeviceContext().m_CommandSystem->WaitForFenceValues(m_Fence->GetFence(), m_SwapChain->m_FrameFenceValues[m_SwapChain->GetCurrentBackBufferIndex()], m_Fence->GetFenceEvent());
+
+            // Present
+            const UINT syncInterval = GetDeviceContext().m_bUseVSync ? 1 : 0;
+            const UINT presentFlags = m_bTearingSupported && !GetDeviceContext().m_bUseVSync
+                                          ? DXGI_PRESENT_ALLOW_TEARING
+                                          : 0;
+            Hr = m_SwapChain->GetSwapChain()->Present(syncInterval, presentFlags);
+            if (FAILED(Hr)) {
+                Logger::LogMessage(Severity::Error, "SwapChain Present failed.");
+            }
+
+
         }
 
+        DeviceManager::PrintDebugMessages(GetDeviceContext().m_Device.Get());
     }
+
+
+
 
     void Renderer::Update() {
         static uint64_t frameCounter = 0;
@@ -229,11 +285,11 @@ namespace HOX {
         CloseHandle(m_Fence->GetFenceEvent());
     }
 
-    void Renderer::ResizeWindow(const uint32_t Width, const uint32_t Height) {
+    void Renderer::ResizeSwapChain(const uint32_t Width, const uint32_t Height) {
         if (!m_SwapChain) { Logger::LogMessage(Severity::ErrorNoCrash, "Failed to resize window due to swapchain."); return; }
         if (!m_Fence) { Logger::LogMessage(Severity::ErrorNoCrash, "Failed to resize window due to fence."); return; }
 
         m_SwapChain->Resize(m_Fence.get(),Width, Height);
-
+        UpdateRenderTarget(GetDeviceContext().m_Device,m_SwapChain->GetSwapChain(),m_RTVDescriptorHeap);
     }
 } // HOX

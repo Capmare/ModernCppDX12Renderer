@@ -28,7 +28,7 @@ namespace HOX {
                                                              ComPtr<ID3D12CommandAllocator> CommandAllocator,
                                                              D3D12_COMMAND_LIST_TYPE Type);
 
-        uint64_t Signal(ComPtr<ID3D12Fence> Fence, uint64_t FenceValue);
+        uint64_t Signal(ComPtr<ID3D12Fence> Fence, uint64_t &FenceValue);
 
         void WaitForFenceValues(ComPtr<ID3D12Fence> Fence, uint64_t FenceValue, HANDLE FenceEvent);
 

@@ -33,7 +33,7 @@ namespace HOX {
         void Update();
         void CleanUpRenderer();
 
-        void ResizeWindow(const uint32_t Width, const uint32_t Height);
+        void ResizeSwapChain(const uint32_t Width, const uint32_t Height);
     private:
         // Swapchain || Synchronization
         std::unique_ptr<HOX::Fence> m_Fence{};

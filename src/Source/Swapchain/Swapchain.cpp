@@ -28,11 +28,20 @@ namespace HOX {
 
             }
             DXGI_SWAP_CHAIN_DESC SwapChainDesc = {};
-            ThrowIfFailed(m_SwapChain->GetDesc(&SwapChainDesc));
-            ThrowIfFailed(m_SwapChain->ResizeBuffers(
+            HRESULT Hr = m_SwapChain->GetDesc(&SwapChainDesc);
+            if (FAILED(Hr)) {
+                Logger::LogMessage(Severity::ErrorNoCrash, "Failed to get swap chain description.");
+            }
+
+            Hr = m_SwapChain->ResizeBuffers(
                 m_MaxFrames,GetDeviceContext().m_WindowWidth,GetDeviceContext().m_WindowHeight,
                 SwapChainDesc.BufferDesc.Format,SwapChainDesc.Flags
-                ));
+                );
+
+            if (FAILED(Hr)) {
+                Logger::LogMessage(Severity::ErrorNoCrash, "Failed to resize swap chain.");
+            }
+
         }
     }
 
@@ -42,7 +51,7 @@ namespace HOX {
     }
 
     ComPtr<IDXGISwapChain4> Swapchain::CreateSwapChain(uint32_t BufferCount) {
-         ComPtr<IDXGISwapChain4> SwapChain{};
+        ComPtr<IDXGISwapChain4> SwapChain{};
         ComPtr<IDXGIFactory4> Factory{};
 
         UINT CreateFactoryFlags = 0;

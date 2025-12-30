@@ -70,14 +70,12 @@ namespace HOX {
     }
 
     uint64_t CommandSystem::Signal(ComPtr<ID3D12Fence> Fence,
-                                   uint64_t FenceValue) {
+                                   uint64_t& FenceValue) {
         uint64_t SignalValue = ++FenceValue;
         HRESULT Hr = GetDeviceContext().m_CommandQueue->Signal(Fence.Get(), SignalValue);
 
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to signal fence.");
-        } else {
-            Logger::LogMessage(Severity::Info, "Signaling fence.");
         }
 
         return SignalValue;
@@ -88,8 +86,6 @@ namespace HOX {
             HRESULT Hr = Fence->SetEventOnCompletion(FenceValue, FenceEvent);
             if (FAILED(Hr)) {
                 Logger::LogMessage(Severity::Error, "Failed to set fence event.");
-            } else {
-                Logger::LogMessage(Severity::Info, "Setting fence event.");
             }
 
             WaitForSingleObject(FenceEvent, INFINITE);

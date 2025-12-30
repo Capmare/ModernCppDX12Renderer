@@ -26,9 +26,12 @@ public:
     void Initialize();
 
     bool CheckTearingSupport();
+    static void PrintDebugMessages(ID3D12Device *device);
 
 private:
     void EnableDebugLayer();
+
+
     ComPtr<IDXGIAdapter4> QueryDx12Adapter();
     ComPtr<ID3D12Device10> CreateDevice();
 

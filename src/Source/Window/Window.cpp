@@ -25,6 +25,8 @@ namespace HOX {
         ShowWindow(m_Window, nCmdShow);
     }
 
+    static bool bFirstCall{true};
+
     LRESULT Window::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         switch (uMsg) {
             case WM_DESTROY:
@@ -35,14 +37,20 @@ namespace HOX {
                 m_Renderer->Render();
                 break;
             case WM_SIZE:
+
             {
+                if (bFirstCall) {
+                    bFirstCall = false;
+                    break;
+                }
+
                 RECT clientRect = {};
                 GetClientRect(hwnd, &clientRect);
 
                 uint32_t Width = clientRect.right - clientRect.left;
                 uint32_t Height = clientRect.bottom - clientRect.top;
 
-                m_Renderer->ResizeWindow(Width, Height);
+                m_Renderer->ResizeSwapChain(Width, Height);
             }
 
                 break;
@@ -58,7 +66,7 @@ namespace HOX {
         GetDeviceContext().m_WindowHeight = m_Height;
 
         m_Renderer->InitializeRenderer(m_Window);
-        MSG msg{0};
+        MSG msg{};
         while (msg.message != WM_QUIT) {
             if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
                 TranslateMessage(&msg);
