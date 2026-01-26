@@ -20,15 +20,30 @@ file(GLOB_RECURSE SRC_MODULES CONFIGURE_DEPENDS
 
 add_executable(ModernCppDX12Renderer WIN32)
 
-# 1) normal .cpp sources
 target_sources(ModernCppDX12Renderer PRIVATE
         ${SRC_FILES}
 )
 
-# 2) module interface units
 target_sources(ModernCppDX12Renderer PRIVATE
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
         ${SRC_MODULES}
+)
+
+
+set(SHADER_SRC_DIR "${CMAKE_SOURCE_DIR}/src/Shaders")
+file(GLOB_RECURSE SHADER_FILES CONFIGURE_DEPENDS
+        "${SHADER_SRC_DIR}/*.hlsl"
+        "${SHADER_SRC_DIR}/*.hlsli"
+)
+
+target_sources(ModernCppDX12Renderer PRIVATE ${SHADER_FILES})
+source_group(TREE "${SHADER_SRC_DIR}" PREFIX "Shaders" FILES ${SHADER_FILES})
+
+add_custom_command(TARGET ModernCppDX12Renderer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:ModernCppDX12Renderer>/Shaders"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${SHADER_SRC_DIR}"
+        "$<TARGET_FILE_DIR:ModernCppDX12Renderer>/Shaders"
 )
 
 target_link_libraries(ModernCppDX12Renderer PRIVATE
@@ -36,10 +51,10 @@ target_link_libraries(ModernCppDX12Renderer PRIVATE
 )
 
 if (MSVC)
-    # Force x64 visibility for Windows headers during scanDependencies
-    target_compile_definitions(ModernCppDX12Renderer PRIVATE _AMD64_ _M_AMD64 WIN64 WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_definitions(ModernCppDX12Renderer PRIVATE
+            _AMD64_ _M_AMD64 WIN64 WIN32_LEAN_AND_MEAN NOMINMAX
+    )
 
-    # ---- Manual std module build (Ninja-safe) ----
     set(STL_MODULE_DIR "$ENV{VCToolsInstallDir}/modules")
     set(STD_IXX "${STL_MODULE_DIR}/std.ixx")
 
@@ -74,8 +89,7 @@ if (MSVC)
     target_compile_options(ModernCppDX12Renderer PRIVATE
             /std:c++latest
             /experimental:module
-            /reference
-            "std=${STD_IFC}"
+            /reference "std=${STD_IFC}"
     )
 
     target_sources(ModernCppDX12Renderer PRIVATE "${STD_OBJ}")

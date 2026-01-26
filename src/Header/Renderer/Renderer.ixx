@@ -5,7 +5,7 @@
 module;
 #include <d3d12.h>
 #include <dxgi1_5.h>
-
+#include <directxmath.h>
 
 export module HOX.Renderer;
 
@@ -20,6 +20,11 @@ import HOX.Context;
 export namespace HOX {
 
     using HOX::Win32::ComPtr;
+
+    struct Vertex {
+        DirectX::XMFLOAT3 Position{};
+        DirectX::XMFLOAT4 Color{};
+    };
 
     class Renderer {
     public:
@@ -60,6 +65,30 @@ export namespace HOX {
         ComPtr<ID3D12GraphicsCommandList7> m_CommandList{};
 
         std::unique_ptr<Swapchain> m_SwapChain{};
+
+
+        // triangle rendering
+        ComPtr<ID3D12Resource> m_VertexBuffer{};
+        D3D12_VERTEX_BUFFER_VIEW m_VertexBufferView{};
+
+        ComPtr<ID3DBlob> ErrorBlob;
+        ComPtr<ID3DBlob> VertexShaderBlob;
+        ComPtr<ID3DBlob> PixelShaderBlob;
+
+
+        // root signature
+        ComPtr<ID3DBlob> SignatureBlob;
+        ComPtr<ID3D12RootSignature> m_RootSignature{};
+
+        ComPtr<ID3D12PipelineState> m_PipelineState{};
+
+        ComPtr<ID3D12Resource> m_DepthStencilBuffer{};
+
+        ComPtr<ID3D12DescriptorHeap> m_DSVHeap{};
+
+        D3D12_VIEWPORT m_Viewport{};
+        D3D12_RECT m_ScissorRect{};
+
 
         bool m_bTearingSupported{false};
 
