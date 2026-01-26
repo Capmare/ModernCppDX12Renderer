@@ -2,17 +2,16 @@
 // Created by david on 10/27/2025.
 //
 
-#ifndef MODERNCPPDX12RENDERER_WINDOW_H
-#define MODERNCPPDX12RENDERER_WINDOW_H
-#include <complex.h>
-#include <complex.h>
+module;
+#include <complex>
 #include <windows.h>
 
-#include "../Builder.h"
+export module HOX.WindowBuilder;
 
+import HOX.Builder;
+import std;
 
-
-namespace HOX {
+export namespace HOX {
 
 
     class WindowBuilder final : public Builder<HWND,WindowBuilder> {
@@ -52,4 +51,3 @@ namespace HOX {
     };
 } // HOX
 
-#endif //MODERNCPPDX12RENDERER_WINDOW_H

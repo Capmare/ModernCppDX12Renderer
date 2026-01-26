@@ -2,15 +2,19 @@
 // Created by capma on 16-Nov-25.
 //
 
-#ifndef DEVICEMANAGER_H
-#define DEVICEMANAGER_H
+module;
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <wrl/client.h>
 
-#include <memory>
-#include "../ResourceManagement/Context.h"
 
-#include "../../pch.h"
+export module HOX.DeviceManager;
 
-namespace HOX {
+import std;
+
+export namespace HOX {
+
+    using Microsoft::WRL::ComPtr;
 
 class DeviceManager {
 
@@ -41,4 +45,3 @@ private:
 
 } // HOX
 
-#endif //DEVICEMANAGER_H

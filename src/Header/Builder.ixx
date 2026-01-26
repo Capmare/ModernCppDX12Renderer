@@ -2,16 +2,17 @@
 // Created by david on 10/27/2025.
 //
 
-#ifndef MODERNCPPDX12RENDERER_BUILDER_H
-#define MODERNCPPDX12RENDERER_BUILDER_H
+export module HOX.Builder;
 
-#include <string>
+import std;
 
-namespace HOX {
+
+
+export namespace HOX {
     template<class ObjectType, class Derived>
     class Builder {
     public:
-        Builder(const std::string& Name) : m_Name(Name) {};
+        explicit Builder(const std::string& Name) : m_Name(Name) {};
         ~Builder() = default;
 
         // Prevent copy and move
@@ -38,4 +39,3 @@ namespace HOX {
     };
 } // HOX
 
-#endif //MODERNCPPDX12RENDERER_BUILDER_H

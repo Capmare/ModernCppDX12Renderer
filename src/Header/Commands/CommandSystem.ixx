@@ -2,15 +2,17 @@
 // Created by capma on 16-Nov-25.
 //
 
-#ifndef COMMANDSYSTEM_H
-#define COMMANDSYSTEM_H
+module;
+#include <cstdint>
+#include <windows.h>
+#include <wrl/client.h>
+#include <d3d12.h>
 
-#include "../../pch.h"
-#include <memory>
+export module HOX.CommandSystem;
 
+import HOX.Fence;
 
-namespace HOX {
-    class Fence;
+export namespace HOX {
 
     class CommandSystem {
     public:
@@ -28,7 +30,7 @@ namespace HOX {
                                                              ComPtr<ID3D12CommandAllocator> CommandAllocator,
                                                              D3D12_COMMAND_LIST_TYPE Type);
 
-        uint64_t Signal(ComPtr<ID3D12Fence> Fence, uint64_t &FenceValue);
+        std::uint64_t Signal(ComPtr<ID3D12Fence> Fence, uint64_t &FenceValue);
 
         void WaitForFenceValues(ComPtr<ID3D12Fence> Fence, uint64_t FenceValue, HANDLE FenceEvent);
 
@@ -40,4 +42,3 @@ namespace HOX {
     };
 } // HOX
 
-#endif //COMMANDSYSTEM_H

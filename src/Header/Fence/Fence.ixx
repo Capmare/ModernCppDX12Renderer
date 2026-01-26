@@ -2,12 +2,18 @@
 // Created by david on 12/23/2025.
 //
 
-#ifndef MODERNCPPDX12RENDERER_FENCE_H
-#define MODERNCPPDX12RENDERER_FENCE_H
+module;
+#include <windows.h>
+#include <wrl/client.h>
+#include <d3d12.h>
+#include <cstdint>
 
-#include "../../pch.h"
+// Engine exports
+export module HOX.Fence;
 
-namespace HOX {
+export namespace HOX {
+    using Microsoft::WRL::ComPtr;
+
     class Fence {
     public:
         Fence();
@@ -25,8 +31,8 @@ namespace HOX {
 
         HANDLE CreateFenceEvent();
 
-        ComPtr<ID3D12Fence> GetFence() const { return m_Fence; }
-        HANDLE GetFenceEvent() const { return m_FenceEvent; }
+        [[nodiscard]] ComPtr<ID3D12Fence> GetFence() const { return m_Fence; }
+        [[nodiscard]] HANDLE GetFenceEvent() const { return m_FenceEvent; }
         uint64_t &GetFenceValue() { return m_FenceValue; }
 
 
@@ -39,4 +45,3 @@ namespace HOX {
     };
 } // HOX
 
-#endif //MODERNCPPDX12RENDERER_FENCE_H

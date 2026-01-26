@@ -2,7 +2,15 @@
 // Created by capma on 16-Nov-25.
 //
 
-#include "../../Header/Commands/CommandSystem.h"
+module;
+#include <d3d12.h>
+
+
+module HOX.CommandSystem;
+
+import HOX.Context;
+import HOX.Logger;
+import HOX.Context;
 
 namespace HOX {
     void CommandSystem::Initialize() {
@@ -19,7 +27,7 @@ namespace HOX {
         QueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
         QueueDesc.NodeMask = 0;
 
-        HRESULT Hr = GetDeviceContext().m_Device->CreateCommandQueue(&QueueDesc, IID_PPV_ARGS(&CommandQueue));
+        HRESULT Hr = GetDeviceContext().m_Device->CreateCommandQueue(&QueueDesc, IID_PPV_ARGS(CommandQueue.ReleaseAndGetAddressOf()));
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to create command queue.");
         } else {
@@ -33,7 +41,7 @@ namespace HOX {
     ComPtr<ID3D12CommandAllocator> CommandSystem::CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE Type) {
         ComPtr<ID3D12CommandAllocator> CommandAllocator{};
 
-        HRESULT Hr = GetDeviceContext().m_Device->CreateCommandAllocator(Type, IID_PPV_ARGS(&CommandAllocator));
+        HRESULT Hr = GetDeviceContext().m_Device->CreateCommandAllocator(Type, IID_PPV_ARGS(CommandAllocator.ReleaseAndGetAddressOf()));
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to create command allocator.");
         } else {
@@ -48,7 +56,7 @@ namespace HOX {
                                                                         D3D12_COMMAND_LIST_TYPE Type) {
         ComPtr<ID3D12GraphicsCommandList7> CommandList{};
 
-        HRESULT Hr = Device->CreateCommandList(0, Type, CommandAllocator.Get(), nullptr, IID_PPV_ARGS(&CommandList));
+        HRESULT Hr = Device->CreateCommandList(0, Type, CommandAllocator.Get(), nullptr, IID_PPV_ARGS(CommandList.ReleaseAndGetAddressOf()));
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to create command list.");
         } else {

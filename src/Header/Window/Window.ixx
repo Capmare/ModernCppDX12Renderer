@@ -2,13 +2,15 @@
 // Created by david on 10/27/2025.
 //
 
-#ifndef MODERNCPPDX12RENDERER_HOXWINDOW_H
-#define MODERNCPPDX12RENDERER_HOXWINDOW_H
-#include <memory>
+module;
 #include <Windows.h>
-#include "../Renderer/Renderer.h"
 
-namespace HOX {
+export module HOX.Window;
+
+import std;
+import HOX.Renderer;
+
+export namespace HOX {
     class Window {
     public:
         Window(const HINSTANCE& hInstance, int nCmdShow);
@@ -43,4 +45,3 @@ namespace HOX {
 }
 
 
-#endif //MODERNCPPDX12RENDERER_HOXWINDOW_H

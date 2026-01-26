@@ -2,12 +2,16 @@
 // Created by david on 10/27/2025.
 //
 
-#include "../../Header/Window/WindowBuilder.h"
 
-#include <format>
-#include <stdexcept>
+module;
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
 
-#include "../../Header/Logger/Logger.h"
+
+module HOX.WindowBuilder;
+import HOX.Logger;
+import std;
 
 namespace HOX {
     WindowBuilder & WindowBuilder::SetWindowProc(const WNDPROC &WindowProc) {

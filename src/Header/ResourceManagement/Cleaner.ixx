@@ -2,13 +2,15 @@
 // Created by david on 10/27/2025.
 //
 
-#ifndef MODERNCPPDX12RENDERER_HOXCLEANER_H
-#define MODERNCPPDX12RENDERER_HOXCLEANER_H
-#include <functional>
-#include <vector>
 
 
-namespace HOX {
+// Engine imports
+export module HOX.Cleaner;
+
+// Other imports
+import std;
+
+export namespace HOX {
     class Cleaner {
 
     public:
@@ -32,4 +34,3 @@ namespace HOX {
 }
 
 
-#endif //MODERNCPPDX12RENDERER_HOXCLEANER_H

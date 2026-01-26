@@ -2,11 +2,12 @@
 // Created by david on 10/27/2025.
 //
 
-#include "../../Header/Logger/Logger.h"
+module;
+#include <windows.h>
 
-#include <codecvt>
-#include <format>
-#include <iostream>
+
+module HOX.Logger;
+import std;
 
 namespace HOX {
    void Logger::LogMessage(const Severity &MessageSeverity, const std::string &Message,

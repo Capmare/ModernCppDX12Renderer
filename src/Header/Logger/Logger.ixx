@@ -2,13 +2,17 @@
 // Created by david on 10/27/2025.
 //
 
-#ifndef MODERNCPPDX12RENDERER_HOXLOGGER_H
-#define MODERNCPPDX12RENDERER_HOXLOGGER_H
-#include <source_location>
-#include <string>
+// Global module fragment
+module;
 #include <windows.h>
 
-namespace HOX {
+// Engine Exports
+export module HOX.Logger;
+
+// Other imports
+import std;
+
+export namespace HOX {
     // Logging severity
     enum Severity {
         Normal,
@@ -37,4 +41,3 @@ namespace HOX {
 }
 
 
-#endif //MODERNCPPDX12RENDERER_HOXLOGGER_H

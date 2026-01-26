@@ -2,15 +2,22 @@
 // Created by david on 10/29/2025.
 //
 
-#include "../../Header/Renderer/Renderer.h"
 
-#include <array>
-#include <chrono>
-#include <random>
+module;
+#include <cstdint>
+#include <windows.h>
+#include <wrl/client.h>
+#include <d3d12.h>
+#include "../../d3dx12.h"
+#include <DXGI.h>
+#include <cstdio>
 
-#include "../../pch.h"
 
-#include "../../Helpers.h"
+module HOX.Renderer;
+
+import std;
+import HOX.Logger;
+
 
 namespace HOX {
     Renderer::Renderer() {
@@ -79,7 +86,7 @@ namespace HOX {
         auto RTVDescriptorSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         D3D12_CPU_DESCRIPTOR_HANDLE RtvHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-        for (uint32_t i = 0; i < m_MaxFrames; i++) {
+        for (std::uint32_t i = 0; i < MaxFrames; i++) {
             ComPtr<ID3D12Resource2> BackBuffer{};
             HRESULT Hr = SwapChain->GetBuffer(i, IID_PPV_ARGS(&BackBuffer));
             if (FAILED(Hr)) {
@@ -112,13 +119,13 @@ namespace HOX {
         m_SwapChain->Initialize();
 
         m_RTVDescriptorHeap = CreateDescriptorHeap(GetDeviceContext().m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-                                                   m_MaxFrames);
+                                                   MaxFrames);
         m_RTVDescriptorSize = GetDeviceContext().m_Device->GetDescriptorHandleIncrementSize(
             D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
         UpdateRenderTarget(GetDeviceContext().m_Device, m_SwapChain->GetSwapChain(), m_RTVDescriptorHeap);
 
-        for (uint32_t i = 0; i < m_MaxFrames; i++) {
+        for (uint32_t i = 0; i < MaxFrames; i++) {
             m_CommandAllocators[i] = GetDeviceContext().m_CommandSystem->CreateCommandAllocator(
                 D3D12_COMMAND_LIST_TYPE_DIRECT);
         }

@@ -2,7 +2,16 @@
 // Created by david on 12/23/2025.
 //
 
-#include "../../Header/Fence/Fence.h"
+module;
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <combaseapi.h>
+#include <Windows.h>
+
+module HOX.Fence;
+import HOX.Context;
+import HOX.Logger;
+import std;
 
 namespace HOX {
     Fence::Fence() {
@@ -17,7 +26,7 @@ namespace HOX {
     ComPtr<ID3D12Fence> Fence::CreateFence(ComPtr<ID3D12Device2> Device) {
 
         ComPtr<ID3D12Fence> Fence{};
-        HRESULT Hr = Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence));
+        HRESULT Hr = Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(Fence.ReleaseAndGetAddressOf()));
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to create fence.");
         } else {

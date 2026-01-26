@@ -2,19 +2,24 @@
 // Created by david on 10/29/2025.
 //
 
-#ifndef MODERNCPPDX12RENDERER_RENDERER_H
-#define MODERNCPPDX12RENDERER_RENDERER_H
+module;
+#include <d3d12.h>
+#include <dxgi1_5.h>
+#include <windows.h>
+#include <wrl/client.h>
+#include <cstdint>
 
+export module HOX.Renderer;
 
-#include <memory>
+import std;
+import HOX.DeviceManager;
+import HOX.SwapChain;
+import HOX.Fence;
+import HOX.Context;
 
-#include "../Commands/CommandSystem.h"
-#include "../Device/DeviceManager.h"
-#include "../Fence/Fence.h"
-#include "../ResourceManagement/Context.h"
-#include "../Swapchain/Swapchain.h"
+export namespace HOX {
 
-namespace HOX {
+    using Microsoft::WRL::ComPtr;
 
     class Renderer {
     public:
@@ -51,7 +56,7 @@ namespace HOX {
         UINT m_RTVDescriptorSize{};
 
         std::unique_ptr<DeviceManager> m_DeviceManager{};
-        ComPtr<ID3D12CommandAllocator> m_CommandAllocators[m_MaxFrames]{};
+        ComPtr<ID3D12CommandAllocator> m_CommandAllocators[MaxFrames]{};
         ComPtr<ID3D12GraphicsCommandList7> m_CommandList{};
 
         std::unique_ptr<Swapchain> m_SwapChain{};
@@ -61,4 +66,3 @@ namespace HOX {
     };
 } // HOX
 
-#endif //MODERNCPPDX12RENDERER_RENDERER_H

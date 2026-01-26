@@ -2,7 +2,8 @@
 // Created by david on 10/27/2025.
 //
 
-#include "../../Header/ResourceManagement/Cleaner.h"
+module HOX.Cleaner;
+import std;
 
 namespace HOX {
     void Cleaner::AddToCleaner(const std::function<void()> &Func) {

@@ -1,15 +1,16 @@
-﻿#include "pch.h"
+﻿
+#include <cstdio>
 #include <windows.h>
 #include <dbghelp.h>
-#include <iostream>
-#include <memory>
-#include "Header/Window/Window.h"
-#include "Header/Window/WindowBuilder.h"
+
+
+import std;
+import HOX.Window;
 
 // Initialize console and redirect standard streams
 void InitConsole() {
     if (AllocConsole()) {
-        FILE* fp;
+        std::FILE* fp;
         freopen_s(&fp, "CONOUT$", "w", stdout);
         freopen_s(&fp, "CONOUT$", "w", stderr);
         freopen_s(&fp, "CONIN$", "r", stdin);

@@ -2,8 +2,18 @@
 // Created by capma on 16-Nov-25.
 //
 
-#include "../../Header/Device/DeviceManager.h"
+
+module;
+#include <d3d12.h>
+#include <dxgi1_6.h>
 #include <dxgidebug.h>
+#include <combaseapi.h>
+
+
+module HOX.DeviceManager;
+
+import HOX.Context;
+import HOX.Logger;
 
 namespace HOX {
 
@@ -19,8 +29,8 @@ namespace HOX {
         ComPtr<ID3D12Debug1> debugController;
         ComPtr<IDXGIInfoQueue> infoQueue;
 
-        if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))) &&
-            SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&infoQueue)))) {
+        if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(debugController.ReleaseAndGetAddressOf()))) &&
+            SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(infoQueue.ReleaseAndGetAddressOf())))) {
 
             debugController->EnableDebugLayer();
             debugController->SetEnableGPUBasedValidation(TRUE);
@@ -41,7 +51,7 @@ namespace HOX {
     void DeviceManager::PrintDebugMessages(ID3D12Device* device) {
 #ifdef _DEBUG
         ComPtr<ID3D12InfoQueue> infoQueue;
-        if (FAILED(device->QueryInterface(IID_PPV_ARGS(&infoQueue))))
+        if (FAILED(device->QueryInterface(IID_PPV_ARGS(infoQueue.ReleaseAndGetAddressOf()))))
             return;
 
         UINT64 numMessages = infoQueue->GetNumStoredMessages();
@@ -82,7 +92,7 @@ namespace HOX {
         CreateFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
 #endif
 
-        if (FAILED(CreateDXGIFactory2(CreateFactoryFlags, IID_PPV_ARGS(&DXGIFactory)))) {
+        if (FAILED(CreateDXGIFactory2(CreateFactoryFlags, IID_PPV_ARGS(DXGIFactory.ReleaseAndGetAddressOf())))) {
             Logger::LogMessage(Severity::Error, "Failed to create DXGIFactory.");
             return nullptr;
         } else {
@@ -93,7 +103,7 @@ namespace HOX {
         ComPtr<IDXGIAdapter4> DXGIAdapter4{};
 
         if (m_bUseWarp) {
-            HRESULT hr = DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&DXGIAdapter1));
+            HRESULT hr = DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(DXGIAdapter1.ReleaseAndGetAddressOf()));
             if (FAILED(hr)) {
                 Logger::LogMessage(Severity::Error, "Failed to enumerate warp adapter.");
                 return nullptr;
@@ -140,7 +150,7 @@ namespace HOX {
             if (!DXGIAdapter4) {
                 // fallback to WARP if no suitable adapter found
                 Logger::LogMessage(Severity::Warning, "No suitable hardware adapter found, falling back to WARP.");
-                HRESULT hr = DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&DXGIAdapter1));
+                HRESULT hr = DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(DXGIAdapter1.ReleaseAndGetAddressOf()));
                 if (FAILED(hr)) {
                     Logger::LogMessage(Severity::Error, "Failed to enumerate warp adapter as fallback.");
                     return nullptr;
@@ -159,7 +169,7 @@ namespace HOX {
     ComPtr<ID3D12Device10> DeviceManager::CreateDevice() {
         ComPtr<ID3D12Device10> Device{};
 
-        HRESULT Hr = D3D12CreateDevice(GetDeviceContext().m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2,IID_PPV_ARGS(&Device));
+        HRESULT Hr = D3D12CreateDevice(GetDeviceContext().m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2,IID_PPV_ARGS(Device.ReleaseAndGetAddressOf()));
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to create D3D12 device.");
         } else {
@@ -222,7 +232,7 @@ namespace HOX {
 
         ComPtr<IDXGIFactory7> Factory{};
 
-        if (SUCCEEDED(CreateDXGIFactory2(CreateFactoryFlags,IID_PPV_ARGS(&Factory)))) {
+        if (SUCCEEDED(CreateDXGIFactory2(CreateFactoryFlags,IID_PPV_ARGS(Factory.ReleaseAndGetAddressOf())))) {
             if (SUCCEEDED(
                 Factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &TearingSupport, sizeof(TearingSupport)
                 ))) {

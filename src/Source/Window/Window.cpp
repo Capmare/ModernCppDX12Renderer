@@ -2,10 +2,19 @@
 // Created by david on 10/27/2025.
 //
 
-#include "../../Header/Window/Window.h"
 
-#include <memory>
-#include "../../Header/Window/WindowBuilder.h"
+module;
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
+#include <cstdint>
+
+module HOX.Window;
+
+import std;
+import HOX.Renderer;
+import HOX.WindowBuilder;
+import HOX.Context;
 
 namespace HOX {
     Window::Window(const HINSTANCE &hInstance, int nCmdShow) {

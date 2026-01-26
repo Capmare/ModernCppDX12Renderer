@@ -2,19 +2,31 @@
 // Created by david on 10/28/2025.
 //
 
-#ifndef MODERNCPPDX12RENDERER_DEVICECONTEXT_H
-#define MODERNCPPDX12RENDERER_DEVICECONTEXT_H
-#include <memory>
-#include "../../pch.h"
+// Exports
+module;
+#include <windows.h>
+#include <wrl/client.h>
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <cstdint>
 
-#include "Cleaner.h"
+export module HOX.Context;
+import std;
 
-namespace HOX {
+export namespace HOX { inline constexpr std::size_t MaxFrames = 3; }
+
+export import HOX.CommandSystem;
+export import HOX.Cleaner;
+
+
+
+export namespace HOX {
+    using Microsoft::WRL::ComPtr;
 
     class Context {
     public:
         Context();
-        ~Context() = default;
+        ~Context();
 
         // Prevent copy and move
         Context(const Context&) = delete;
@@ -28,7 +40,7 @@ namespace HOX {
         ComPtr<IDXGIAdapter4> m_Adapter{};
         ComPtr<ID3D12CommandQueue> m_CommandQueue{};
 
-        std::unique_ptr<HOX::Cleaner> m_Cleaner;
+        std::unique_ptr<HOX::Cleaner> m_Cleaner{};
         std::unique_ptr<HOX::CommandSystem> m_CommandSystem{};
 
 
@@ -37,6 +49,7 @@ namespace HOX {
 
         bool m_bUseVSync{false};
         bool m_bTearingSupported{false};
+
 
     private:
 
@@ -47,4 +60,3 @@ namespace HOX {
 
 } // HOX
 
-#endif //MODERNCPPDX12RENDERER_DEVICECONTEXT_H

@@ -2,15 +2,29 @@
 // Created by capma on 16-Nov-25.
 //
 
-#include "../../Header/Swapchain/Swapchain.h"
+module;
+#include <dxgi1_4.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#if defined(min)
+#undef min
+#endif
 
-#include "../../Helpers.h"
-#include "../../Header/Fence/Fence.h"
+#if defined(max)
+#undef max
+#endif
+
+
+module HOX.SwapChain;
+import HOX.Context;
+import HOX.Logger;
+import std;
+
 
 namespace HOX {
 
     void Swapchain::Initialize() {
-        m_SwapChain = CreateSwapChain(m_MaxFrames);
+        m_SwapChain = CreateSwapChain(MaxFrames);
     }
 
     void Swapchain::Resize(HOX::Fence* CurrentFence, const uint32_t Width, const uint32_t Height) {
@@ -22,7 +36,7 @@ namespace HOX {
             GetDeviceContext().m_CommandSystem->FlushCommands(CurrentFence->GetFence(),CurrentFence->GetFenceValue(),CurrentFence->GetFenceEvent());
 
 
-            for (size_t idx = 0; idx < m_MaxFrames; ++idx) {
+            for (size_t idx = 0; idx < MaxFrames; ++idx) {
                 m_BackBuffers[idx].Reset();
                 m_FrameFenceValues[idx] = m_FrameFenceValues[GetCurrentBackBufferIndex()];
 
@@ -34,7 +48,7 @@ namespace HOX {
             }
 
             Hr = m_SwapChain->ResizeBuffers(
-                m_MaxFrames,GetDeviceContext().m_WindowWidth,GetDeviceContext().m_WindowHeight,
+                MaxFrames,GetDeviceContext().m_WindowWidth,GetDeviceContext().m_WindowHeight,
                 SwapChainDesc.BufferDesc.Format,SwapChainDesc.Flags
                 );
 
@@ -60,7 +74,7 @@ namespace HOX {
         CreateFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
 #endif
 
-        HRESULT Hr = CreateDXGIFactory2(CreateFactoryFlags, IID_PPV_ARGS(&Factory));
+        HRESULT Hr = CreateDXGIFactory2(CreateFactoryFlags, IID_PPV_ARGS(Factory.ReleaseAndGetAddressOf()));
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to create DXGIFactory2.");
         } else {
