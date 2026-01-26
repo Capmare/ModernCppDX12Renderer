@@ -17,7 +17,7 @@ export namespace HOX { inline constexpr std::size_t MaxFrames = 3; }
 import HOX.CommandSystem;
 import HOX.Cleaner;
 import HOX.InputManager;
-
+import HOX.MemoryAllocator;
 
 
 export namespace HOX {
@@ -40,6 +40,7 @@ export namespace HOX {
         ComPtr<IDXGIAdapter4> m_Adapter{};
         ComPtr<ID3D12CommandQueue> m_CommandQueue{};
 
+        std::unique_ptr<HOX::MemoryAllocator> m_Allocator{};
         std::unique_ptr<HOX::InputManager> m_InputManager{};
         std::unique_ptr<HOX::Cleaner> m_Cleaner{};
         std::unique_ptr<HOX::CommandSystem> m_CommandSystem{};

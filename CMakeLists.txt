@@ -50,6 +50,14 @@ target_link_libraries(ModernCppDX12Renderer PRIVATE
         d3d12 dxgi d3dcompiler dxguid dbghelp
 )
 
+# D3D12 Memory Allocator
+target_sources(ModernCppDX12Renderer PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/ThirdParty/D3D12MA/D3D12MemAlloc.cpp"
+)
+target_include_directories(ModernCppDX12Renderer PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/ThirdParty/D3D12MA"
+)
+
 if (MSVC)
     target_compile_definitions(ModernCppDX12Renderer PRIVATE
             _AMD64_ _M_AMD64 WIN64 WIN32_LEAN_AND_MEAN NOMINMAX

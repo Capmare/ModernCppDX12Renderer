@@ -6,12 +6,16 @@ module HOX.Context;
 import std;
 import HOX.Cleaner;
 import HOX.CommandSystem;
+import HOX.MemoryAllocator;
 
 namespace HOX {
+
     Context::Context() {
         m_InputManager = std::make_unique<InputManager>();
         m_Cleaner = std::make_unique<HOX::Cleaner>();
         m_CommandSystem = std::make_unique<HOX::CommandSystem>();
+
+
 
     }
 

@@ -21,6 +21,8 @@ import HOX.Win32;
 import HOX.Logger;
 import HOX.Camera;
 import HOX.CommandSystem;
+import HOX.MemoryAllocator;
+import HOX.DeviceManager;
 
 namespace HOX {
     Renderer::Renderer() {
@@ -248,7 +250,12 @@ namespace HOX {
 
 
         DeviceManager::PrintDebugMessages(GetDeviceContext().m_Device.Get());
-
+        
+        {
+            GetDeviceContext().m_Allocator = std::make_unique<HOX::MemoryAllocator>();
+            GetDeviceContext().m_Allocator->Initialize(GetDeviceContext().m_Device.Get(),
+                                                       GetDeviceContext().m_Adapter.Get());
+        }
 
         // setting up triangle
         Vertex TriangleVertices[] = {
