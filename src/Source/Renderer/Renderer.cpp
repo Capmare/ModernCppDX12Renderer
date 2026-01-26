@@ -10,6 +10,7 @@ module;
 #include <DXGI.h>
 #include <stdio.h>
 #include <d3dcompiler.h>
+#include <directxmath.h>
 
 
 module HOX.Renderer;
@@ -18,7 +19,8 @@ import std;
 import HOX.Types;
 import HOX.Win32;
 import HOX.Logger;
-
+import HOX.Camera;
+import HOX.CommandSystem;
 
 namespace HOX {
     Renderer::Renderer() {
@@ -107,6 +109,100 @@ namespace HOX {
         }
     }
 
+    void Renderer::CreateDepthBuffer(u32 Width, u32 Height) {
+
+        HRESULT Hr{};
+
+        auto LogD3DCompileFailure = [&](std::string_view what) {
+            if (!FAILED(Hr)) return;
+
+            std::string msg = "No error blob returned.";
+
+            if (ErrorBlob && ErrorBlob->GetBufferPointer() && ErrorBlob->GetBufferSize() > 0) {
+                const char *text = static_cast<const char *>(ErrorBlob->GetBufferPointer());
+                const size_t len = ErrorBlob->GetBufferSize();
+                msg.assign(text, text + len); // not null-terminated
+            }
+
+            Logger::LogMessage(
+                Severity::Error,
+                std::format("{} (HRESULT=0x{:08X})\n{}",
+                            what, static_cast<unsigned>(Hr), msg)
+            );
+        };
+
+
+        {
+            m_DepthStencilBuffer.Reset();
+
+            // DepthBuffer creation
+            D3D12_RESOURCE_DESC DepthStencilDesc = {};
+            DepthStencilDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D; // 2d texture not a buffer
+            DepthStencilDesc.Alignment = 0;
+            DepthStencilDesc.Width = Width;
+            DepthStencilDesc.Height = Height;
+            DepthStencilDesc.DepthOrArraySize = 1;
+            DepthStencilDesc.MipLevels = 1;
+            DepthStencilDesc.Format = DXGI_FORMAT_D32_FLOAT; // 32 bit float depth
+            DepthStencilDesc.SampleDesc.Count = 1;
+            DepthStencilDesc.SampleDesc.Quality = 0;
+            DepthStencilDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+            DepthStencilDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; // makes it a depth stencil
+
+            D3D12_HEAP_PROPERTIES HeapProperties = {};
+            HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT; // GPU only memory
+
+            D3D12_CLEAR_VALUE ClearValue = {};
+            ClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+            ClearValue.DepthStencil.Depth = 1.0f;
+            ClearValue.DepthStencil.Stencil = 0;
+
+            Hr = GetDeviceContext().m_Device->CreateCommittedResource(
+                &HeapProperties,
+                D3D12_HEAP_FLAG_NONE,
+                &DepthStencilDesc,
+                D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                &ClearValue,
+                HOX::Win32::UuidOf<ID3D12Resource>(),
+                HOX::Win32::PpvArgs(m_DepthStencilBuffer.ReleaseAndGetAddressOf())
+            );
+
+            LogD3DCompileFailure("Failed to create depth stencil buffer ");
+        }
+
+        {
+            D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
+            HeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+            HeapDesc.NumDescriptors = 1; // One depth buffer
+            HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // DSV heads are not shader visible
+
+            GetDeviceContext().m_Device->CreateDescriptorHeap(
+                &HeapDesc,
+                HOX::Win32::UuidOf<ID3D12DescriptorHeap>(),
+                HOX::Win32::PpvArgs(m_DSVHeap.ReleaseAndGetAddressOf())
+            );
+
+            LogD3DCompileFailure("Failed to create dsv descriptor ");
+
+            D3D12_DEPTH_STENCIL_VIEW_DESC DepthStencilViewDesc = {};
+            DepthStencilViewDesc.Format = DXGI_FORMAT_D32_FLOAT;
+            DepthStencilViewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+            DepthStencilViewDesc.Flags = D3D12_DSV_FLAG_NONE;
+            DepthStencilViewDesc.Texture2D.MipSlice = 0;
+            GetDeviceContext().m_Device->CreateDepthStencilView(
+                m_DepthStencilBuffer.Get(),
+                &DepthStencilViewDesc,
+                m_DSVHeap->GetCPUDescriptorHandleForHeapStart());
+        }
+    }
+
+    void Renderer::UpdateViewPortAndScissor(u32 Width, u32 Height) {
+        m_Viewport.Width = Width;
+        m_Viewport.Height = Height;
+        m_ScissorRect.right = m_Viewport.Width;
+        m_ScissorRect.bottom = m_Viewport.Height;
+    }
+
 
     void Renderer::InitializeRenderer(HWND Hwnd) {
         GetDeviceContext().Hwnd = Hwnd;
@@ -117,7 +213,7 @@ namespace HOX {
 
         m_bTearingSupported = m_DeviceManager->CheckTearingSupport();
 
-        GetDeviceContext().m_CommandSystem = std::make_unique<CommandSystem>();
+        GetDeviceContext().m_CommandSystem = std::make_unique<HOX::CommandSystem>();
         GetDeviceContext().m_CommandSystem->Initialize();
 
         m_SwapChain = std::make_unique<Swapchain>();
@@ -167,32 +263,36 @@ namespace HOX {
             {{-0.3f, -0.3f, 0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}},
         };
 
-        D3D12_HEAP_PROPERTIES HeapProps = {};
-        HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // cpu can write gpu can read
-        HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-        HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+        HRESULT Hr{};
 
-        D3D12_RESOURCE_DESC ResourceDesc = {};
-        ResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        ResourceDesc.Alignment = 0;
-        ResourceDesc.Width = sizeof(TriangleVertices);
-        ResourceDesc.Height = 1;
-        ResourceDesc.DepthOrArraySize = 1;
-        ResourceDesc.MipLevels = 1;
-        ResourceDesc.MipLevels = 1;
-        ResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
-        ResourceDesc.SampleDesc.Count = 1;
-        ResourceDesc.SampleDesc.Quality = 0;
-        ResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        ResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+        {
+            D3D12_HEAP_PROPERTIES HeapProps = {};
+            HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // cpu can write gpu can read
+            HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+            HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 
-        HRESULT Hr = GetDeviceContext().m_Device->CreateCommittedResource(
-            &HeapProps,
-            D3D12_HEAP_FLAG_NONE,
-            &ResourceDesc,
-            D3D12_RESOURCE_STATE_GENERIC_READ,
-            nullptr,
-            HOX::Win32::UuidOf<ID3D12Resource>(), HOX::Win32::PpvArgs(m_VertexBuffer.ReleaseAndGetAddressOf()));
+            D3D12_RESOURCE_DESC ResourceDesc = {};
+            ResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+            ResourceDesc.Alignment = 0;
+            ResourceDesc.Width = sizeof(TriangleVertices);
+            ResourceDesc.Height = 1;
+            ResourceDesc.DepthOrArraySize = 1;
+            ResourceDesc.MipLevels = 1;
+            ResourceDesc.MipLevels = 1;
+            ResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+            ResourceDesc.SampleDesc.Count = 1;
+            ResourceDesc.SampleDesc.Quality = 0;
+            ResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+            ResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+            Hr = GetDeviceContext().m_Device->CreateCommittedResource(
+                &HeapProps,
+                D3D12_HEAP_FLAG_NONE,
+                &ResourceDesc,
+                D3D12_RESOURCE_STATE_GENERIC_READ,
+                nullptr,
+                HOX::Win32::UuidOf<ID3D12Resource>(), HOX::Win32::PpvArgs(m_VertexBuffer.ReleaseAndGetAddressOf()));
+        }
 
         void *pData = nullptr;
         D3D12_RANGE ReadRange = {0, 0};
@@ -256,10 +356,51 @@ namespace HOX {
         LogD3DCompileFailure("Failed to compile Pixel shader.");
 
 
+        // CAMERA
+        {
+            m_Camera = std::make_unique<Camera>();
+            float AspectRatio = static_cast<float>(GetDeviceContext().m_WindowWidth) /
+                    static_cast<float>(GetDeviceContext().m_WindowHeight);
+            m_Camera->UpdateAspectRatio(AspectRatio);
+
+            D3D12_HEAP_PROPERTIES HeapProps = {};
+            HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+            D3D12_RESOURCE_DESC ResourceDesc = {};
+            ResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+            ResourceDesc.Width = HOX::CameraConstantsSize;
+            ResourceDesc.Height = 1;
+            ResourceDesc.DepthOrArraySize = 1;
+            ResourceDesc.MipLevels = 1;
+            ResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+            ResourceDesc.SampleDesc.Count = 1;
+            ResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+            GetDeviceContext().m_Device->CreateCommittedResource(
+                &HeapProps,
+                D3D12_HEAP_FLAG_NONE,
+                &ResourceDesc,
+                D3D12_RESOURCE_STATE_GENERIC_READ,
+                nullptr,
+                HOX::Win32::UuidOf<ID3D12Resource>(),
+                HOX::Win32::PpvArgs(m_CameraConstantbuffer.ReleaseAndGetAddressOf()));
+
+            D3D12_RANGE ReadRange = {0, 0}; // no read
+            m_CameraConstantbuffer->Map(0, &ReadRange, &m_CameraConstantBufferMapped);
+
+        }
+
+        // Root parameter for constant buffer
+        D3D12_ROOT_PARAMETER RootParameter = {};
+        RootParameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // constat buffer view
+        RootParameter.Descriptor.ShaderRegister = 0; // register b0
+        RootParameter.Descriptor.RegisterSpace = 0;
+        RootParameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+
         // root signatures
         D3D12_ROOT_SIGNATURE_DESC RootSignatureDesc = {};
-        RootSignatureDesc.NumParameters = 0;
-        RootSignatureDesc.pParameters = nullptr;
+        RootSignatureDesc.NumParameters = 1;
+        RootSignatureDesc.pParameters = &RootParameter;
         RootSignatureDesc.NumStaticSamplers = 0;
         RootSignatureDesc.pStaticSamplers = nullptr;
         RootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
@@ -317,67 +458,11 @@ namespace HOX {
                 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
                 0
             }
-        }; {
-            const int windowWidth = static_cast<int>(GetDeviceContext().m_WindowWidth);
-            const int windowHeight = static_cast<int>(GetDeviceContext().m_WindowHeight);
+        };
 
-            // DepthBuffer creation
-            D3D12_RESOURCE_DESC DepthStencilDesc = {};
-            DepthStencilDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D; // 2d texture not a buffer
-            DepthStencilDesc.Alignment = 0;
-            DepthStencilDesc.Width = windowWidth;
-            DepthStencilDesc.Height = windowHeight;
-            DepthStencilDesc.DepthOrArraySize = 1;
-            DepthStencilDesc.MipLevels = 1;
-            DepthStencilDesc.Format = DXGI_FORMAT_D32_FLOAT; // 32 bit float depth
-            DepthStencilDesc.SampleDesc.Count = 1;
-            DepthStencilDesc.SampleDesc.Quality = 0;
-            DepthStencilDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-            DepthStencilDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; // makes it a depth stencil
-
-            D3D12_HEAP_PROPERTIES HeapProperties = {};
-            HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT; // GPU only memory
-
-            D3D12_CLEAR_VALUE ClearValue = {};
-            ClearValue.Format = DXGI_FORMAT_D32_FLOAT;
-            ClearValue.DepthStencil.Depth = 1.0f;
-            ClearValue.DepthStencil.Stencil = 0;
-
-            Hr = GetDeviceContext().m_Device->CreateCommittedResource(
-                &HeapProperties,
-                D3D12_HEAP_FLAG_NONE,
-                &DepthStencilDesc,
-                D3D12_RESOURCE_STATE_DEPTH_WRITE,
-                &ClearValue,
-                HOX::Win32::UuidOf<ID3D12Resource>(),
-                HOX::Win32::PpvArgs(m_DepthStencilBuffer.ReleaseAndGetAddressOf())
-            );
-
-            LogD3DCompileFailure("Failed to create depth stencil buffer ");
-
-            D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
-            HeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-            HeapDesc.NumDescriptors = 1; // One depth buffer
-            HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // DSV heads are not shader visible
-
-            GetDeviceContext().m_Device->CreateDescriptorHeap(
-                &HeapDesc,
-                HOX::Win32::UuidOf<ID3D12DescriptorHeap>(),
-                HOX::Win32::PpvArgs(m_DSVHeap.ReleaseAndGetAddressOf())
-            );
-
-            LogD3DCompileFailure("Failed to create dsv descriptor ");
-
-            D3D12_DEPTH_STENCIL_VIEW_DESC DepthStencilViewDesc = {};
-            DepthStencilViewDesc.Format = DXGI_FORMAT_D32_FLOAT;
-            DepthStencilViewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-            DepthStencilViewDesc.Flags = D3D12_DSV_FLAG_NONE;
-            DepthStencilViewDesc.Texture2D.MipSlice = 0;
-            GetDeviceContext().m_Device->CreateDepthStencilView(
-                m_DepthStencilBuffer.Get(),
-                &DepthStencilViewDesc,
-                m_DSVHeap->GetCPUDescriptorHandleForHeapStart());
-        }
+        const int WindowWidth = static_cast<int>(GetDeviceContext().m_WindowWidth);
+        const int WindowHeight = static_cast<int>(GetDeviceContext().m_WindowHeight);
+        CreateDepthBuffer(WindowWidth, WindowHeight);
 
 
         GraphicsPipelineDesc.InputLayout = {InputLayoutDesc, _countof(InputLayoutDesc)};
@@ -500,16 +585,34 @@ namespace HOX {
         }
 
 
+
+
         // Draw
         {
             m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
             m_CommandList->SetPipelineState(m_PipelineState.Get());
+
+            // Camera movement && and binding
+            {
+                const DirectX::XMMATRIX ViewProjection = m_Camera->GetViewProjectionMatrix();
+
+                CameraConstants Constants;
+                DirectX::XMStoreFloat4x4(&Constants.m_ViewProjection, ViewProjection);
+                memcpy(m_CameraConstantBufferMapped, &Constants, sizeof(Constants));
+
+                m_CommandList->SetGraphicsRootConstantBufferView(0,
+                    m_CameraConstantbuffer->GetGPUVirtualAddress());
+            }
+
+
             m_CommandList->IASetVertexBuffers(0, 1, &m_VertexBufferView);
             m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             m_CommandList->RSSetViewports(1, &m_Viewport);
             m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
             m_CommandList->DrawInstanced(6, 1, 0, 0);
-        } {
+        }
+
+        {
             // Transition back buffer to present
             CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
                 BackBuffer.Get(),
@@ -560,10 +663,10 @@ namespace HOX {
 
         frameCounter++;
         auto t1 = clock.now();
-        auto deltaTime = t1 - t0;
+        auto deltaTime = (t1 - t0).count()  * 1e-9f;
         t0 = t1;
 
-        elapsedSeconds += deltaTime.count() * 1e-9;
+        elapsedSeconds += deltaTime;
         if (elapsedSeconds > 1.0) {
             char buffer[500];
             auto fps = frameCounter / elapsedSeconds;
@@ -573,6 +676,8 @@ namespace HOX {
             frameCounter = 0;
             elapsedSeconds = 0.0;
         }
+
+       m_Camera->Update(deltaTime);
     }
 
     void Renderer::CleanUpRenderer() {
@@ -593,5 +698,14 @@ namespace HOX {
 
         m_SwapChain->Resize(m_Fence.get(), Width, Height);
         UpdateRenderTarget(GetDeviceContext().m_Device, m_SwapChain->GetSwapChain(), m_RTVDescriptorHeap);
+
+        CreateDepthBuffer(Width, Height);
+        UpdateViewPortAndScissor(Width, Height);
+
+        if (m_Camera) {
+            float AspectRatio = Width / static_cast<float>(Height);
+            m_Camera->UpdateAspectRatio(AspectRatio);
+        }
+
     }
 } // HOX

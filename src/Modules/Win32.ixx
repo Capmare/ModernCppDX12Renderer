@@ -9,6 +9,7 @@ module;
 #include <cstdarg>
 #include <combaseapi.h>
 #include <wrl/client.h>
+#include <windowsx.h>
 
 export module HOX.Win32;
 
@@ -140,6 +141,9 @@ export namespace HOX::Win32 {
     inline HANDLE CurrentThread() noexcept { return GetCurrentThread(); }
 
     inline void ZeroMem(void *p, size_t n) noexcept { ::ZeroMemory(p, n); }
+
+    inline int GetXLParam(LPARAM lp) { return GET_X_LPARAM(lp); }
+    inline int GetYLParam(LPARAM lp) { return GET_Y_LPARAM(lp); }
 
     inline BOOL SetConsoleColor(HANDLE h, WORD attr) noexcept {
         return ::SetConsoleTextAttribute(h, attr);

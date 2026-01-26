@@ -16,6 +16,7 @@ import HOX.DeviceManager;
 import HOX.SwapChain;
 import HOX.Fence;
 import HOX.Context;
+import HOX.Camera;
 
 export namespace HOX {
 
@@ -82,12 +83,20 @@ export namespace HOX {
 
         ComPtr<ID3D12PipelineState> m_PipelineState{};
 
+        // Depth
         ComPtr<ID3D12Resource> m_DepthStencilBuffer{};
-
         ComPtr<ID3D12DescriptorHeap> m_DSVHeap{};
 
+        void CreateDepthBuffer(u32 Width, u32 Height);
+        void UpdateViewPortAndScissor(u32 Width, u32 Height);
         D3D12_VIEWPORT m_Viewport{};
         D3D12_RECT m_ScissorRect{};
+
+        // camera
+        std::unique_ptr<HOX::Camera> m_Camera{};
+        ComPtr<ID3D12Resource>  m_CameraConstantbuffer{};
+        void* m_CameraConstantBufferMapped{nullptr}; // its faster to keep the buffer mapped
+
 
 
         bool m_bTearingSupported{false};

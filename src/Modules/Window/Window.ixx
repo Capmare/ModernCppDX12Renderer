@@ -8,8 +8,14 @@ export module HOX.Window;
 import HOX.Win32;
 import std;
 import HOX.Renderer;
+import HOX.InputManager;
+
+
+
+
 
 export namespace HOX {
+
     class Window {
     public:
         Window(const HOX::Win32::HINSTANCE& hInstance, int nCmdShow);
@@ -28,10 +34,15 @@ export namespace HOX {
 
         std::tuple<int, int, int, int> GetWindowLocationAndDimension();
         void SetWindowLocationAndDimension(std::tuple<int, int, int,int> NewLocation);
+
     private:
+
+
         static HOX::Win32::LRESULT WindowThunk(HOX::Win32::HWND hwnd, HOX::Win32::UINT uMsg, HOX::Win32::WPARAM wParam, HOX::Win32::LPARAM lParam);
+        void UpdateScreenCenter(HOX::Win32::HWND Hwnd);
 
         std::unique_ptr<HOX::Renderer> m_Renderer;
+
         HOX::Win32::HWND m_Window{};
 
         int m_Xloc{300};
@@ -42,5 +53,6 @@ export namespace HOX {
         bool bShouldQuit{false};
     };
 }
+
 
 
