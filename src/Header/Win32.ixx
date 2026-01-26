@@ -14,7 +14,7 @@ export module HOX.Win32;
 
 
 export namespace HOX::Win32 {
-    export using Microsoft::WRL::ComPtr;
+    using Microsoft::WRL::ComPtr;
 
     // Types
     using ::HINSTANCE;
