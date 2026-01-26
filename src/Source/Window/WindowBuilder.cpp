@@ -4,35 +4,32 @@
 
 
 module;
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-
 
 module HOX.WindowBuilder;
+import HOX.Win32;
 import HOX.Logger;
 import std;
 
 namespace HOX {
-    WindowBuilder & WindowBuilder::SetWindowProc(const WNDPROC &WindowProc) {
+    WindowBuilder & WindowBuilder::SetWindowProc(const HOX::Win32::WNDPROC &WindowProc) {
         m_WindowClass.lpfnWndProc = WindowProc;
         m_WindowClass.hInstance = m_hInstance;
-        m_WindowClass.style = CS_HREDRAW | CS_VREDRAW;
-        m_WindowClass.lpszClassName = m_WindowClassName;
+        m_WindowClass.style = HOX::Win32::CsHRedraw | HOX::Win32::CsVRedraw;
+        m_WindowClass.lpszClassName = m_WindowClassName.c_str();
         return *this;
     }
 
-    WindowBuilder& WindowBuilder::SetWindowInstance(const HINSTANCE &instance) {
+    WindowBuilder& WindowBuilder::SetWindowInstance(const HOX::Win32::HINSTANCE &instance) {
         m_hInstance = instance;
         return *this;
     }
 
-    WindowBuilder& WindowBuilder::SetWindowClassName(const std::string &WindowClassName) {
+    WindowBuilder& WindowBuilder::SetWindowClassName(const std::wstring &WindowClassName) {
         m_WindowClassName = WindowClassName.c_str();
         return *this;
     }
 
-    WindowBuilder& WindowBuilder::SetWindowTitle(const std::string &WindowTitle) {
+    WindowBuilder& WindowBuilder::SetWindowTitle(const std::wstring &WindowTitle) {
         m_WindowName = WindowTitle.c_str();
         return *this;
     }
@@ -45,30 +42,30 @@ namespace HOX {
         return *this;
     }
 
-    WindowBuilder & WindowBuilder::SetWindowStyle(const DWORD &WindowStyle) {
+    WindowBuilder & WindowBuilder::SetWindowStyle(const HOX::Win32::DWORD &WindowStyle) {
         m_WindowStyle = WindowStyle;
         return *this;
     }
 
-    HWND WindowBuilder::BuildImpl() {
-        RegisterClass(&m_WindowClass);
+    HOX::Win32::HWND WindowBuilder::BuildImpl() {
+        HOX::Win32::RegisterClassW_(&m_WindowClass);
 
-        HWND WindowHandle = CreateWindowEx(
+        HOX::Win32::HWND WindowHandle = HOX::Win32::CreateWindowExW_(
             0,
-            m_WindowClassName,
-            m_WindowName,
+            m_WindowClassName.data(),
+            m_WindowName.data(),
             m_WindowStyle,
             m_XLocation,
             m_YLocation,
             m_Width,
             m_Height,
-            NULL,
-            NULL,
+            nullptr,
+            nullptr,
             m_hInstance,
-            NULL
+            nullptr
         );
 
-        if (WindowHandle == NULL) {
+        if (WindowHandle == nullptr) {
             Logger::LogMessage(Severity::Error, "Failed to create Window");
         }
         Logger::LogMessage(Severity::Normal, "WindowHandle create successfully");

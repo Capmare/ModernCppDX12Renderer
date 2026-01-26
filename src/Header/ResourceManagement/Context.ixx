@@ -4,15 +4,14 @@
 
 // Exports
 module;
-#include <windows.h>
-#include <wrl/client.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
-#include <cstdint>
+
+import std;
+import HOX.Win32;
+import HOX.Types;
 
 export module HOX.Context;
-import std;
-
 export namespace HOX { inline constexpr std::size_t MaxFrames = 3; }
 
 export import HOX.CommandSystem;
@@ -21,7 +20,7 @@ export import HOX.Cleaner;
 
 
 export namespace HOX {
-    using Microsoft::WRL::ComPtr;
+    using HOX::Win32::ComPtr;
 
     class Context {
     public:
@@ -44,8 +43,8 @@ export namespace HOX {
         std::unique_ptr<HOX::CommandSystem> m_CommandSystem{};
 
 
-        uint32_t m_WindowWidth{0};
-        uint32_t m_WindowHeight{0};
+        u32 m_WindowWidth{0};
+        u32 m_WindowHeight{0};
 
         bool m_bUseVSync{false};
         bool m_bTearingSupported{false};

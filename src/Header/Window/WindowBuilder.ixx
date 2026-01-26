@@ -2,19 +2,16 @@
 // Created by david on 10/27/2025.
 //
 
-module;
-#include <complex>
-#include <windows.h>
-
 export module HOX.WindowBuilder;
 
+import HOX.Win32;
 import HOX.Builder;
 import std;
 
 export namespace HOX {
 
 
-    class WindowBuilder final : public Builder<HWND,WindowBuilder> {
+    class WindowBuilder final : public Builder<HOX::Win32::HWND,WindowBuilder> {
 
     public:
         WindowBuilder(const std::string& Name) : Builder(Name) {};
@@ -26,25 +23,25 @@ export namespace HOX {
         WindowBuilder(WindowBuilder&&) = delete;
         WindowBuilder& operator=(WindowBuilder&&) = delete;
 
-        WindowBuilder& SetWindowProc(const WNDPROC& WindowProc);
-        WindowBuilder& SetWindowInstance(const HINSTANCE& instance);
-        WindowBuilder& SetWindowClassName(const std::string& WindowClassName);
-        WindowBuilder& SetWindowTitle(const std::string& WindowTitle);
+        WindowBuilder& SetWindowProc(const HOX::Win32::WNDPROC& WindowProc);
+        WindowBuilder& SetWindowInstance(const HOX::Win32::HINSTANCE& instance);
+        WindowBuilder& SetWindowClassName(const std::wstring &WindowClassName);
+        WindowBuilder& SetWindowTitle(const std::wstring &WindowTitle);
         WindowBuilder& SetWindowLocationAndSize(const std::tuple<int,int,int,int>& WindowDimensions);
-        WindowBuilder& SetWindowStyle(const DWORD& WindowStyle);
+        WindowBuilder& SetWindowStyle(const HOX::Win32::DWORD& WindowStyle);
 
-        HWND BuildImpl();
+        HOX::Win32::HWND BuildImpl();
 
     private:
-        HINSTANCE m_hInstance{};
-        WNDCLASS m_WindowClass{};
-        LPCSTR m_WindowClassName{ "DefaultWindowClassName" };
-        LPCSTR  m_WindowName{ "DefaultWindowName" };
-        DWORD m_WindowStyle{ WS_OVERLAPPED };
-        int m_XLocation{ CW_USEDEFAULT };
-        int m_YLocation{ CW_USEDEFAULT };
-        int m_Width { CW_USEDEFAULT };
-        int m_Height { CW_USEDEFAULT };
+        HOX::Win32::HINSTANCE m_hInstance{};
+        HOX::Win32::WNDCLASSW m_WindowClass{};
+        std::wstring m_WindowClassName = L"DefaultWindowClassName";
+        std::wstring  m_WindowName{ L"DefaultWindowName" };
+        HOX::Win32::DWORD m_WindowStyle{ HOX::Win32::WSOverlappedDefault };
+        int m_XLocation{ HOX::Win32::CWUseDefault };
+        int m_YLocation{ HOX::Win32::CWUseDefault };
+        int m_Width { HOX::Win32::CWUseDefault };
+        int m_Height { HOX::Win32::CWUseDefault };
 
 
 

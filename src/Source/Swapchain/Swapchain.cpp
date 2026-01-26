@@ -4,18 +4,11 @@
 
 module;
 #include <dxgi1_4.h>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#if defined(min)
-#undef min
-#endif
 
-#if defined(max)
-#undef max
-#endif
 
 
 module HOX.SwapChain;
+import HOX.Win32;
 import HOX.Context;
 import HOX.Logger;
 import std;
@@ -27,7 +20,7 @@ namespace HOX {
         m_SwapChain = CreateSwapChain(MaxFrames);
     }
 
-    void Swapchain::Resize(HOX::Fence* CurrentFence, const uint32_t Width, const uint32_t Height) {
+    void Swapchain::Resize(HOX::Fence* CurrentFence, const u32 Width, const u32 Height) {
         if (Width != GetDeviceContext().m_WindowWidth || Height != GetDeviceContext().m_WindowHeight) {
             GetDeviceContext().m_WindowWidth = std::max(1u, Width);
             GetDeviceContext().m_WindowHeight = std::max(1u, Height);
@@ -60,11 +53,11 @@ namespace HOX {
     }
 
 
-    void Swapchain::UpdateBackBuffer(const ComPtr<ID3D12Resource2> &NewBackBuffer, uint8_t Location) {
+    void Swapchain::UpdateBackBuffer(const ComPtr<ID3D12Resource2> &NewBackBuffer, u8 Location) {
         m_BackBuffers[Location] = NewBackBuffer;
     }
 
-    ComPtr<IDXGISwapChain4> Swapchain::CreateSwapChain(uint32_t BufferCount) {
+    ComPtr<IDXGISwapChain4> Swapchain::CreateSwapChain(u32 BufferCount) {
         ComPtr<IDXGISwapChain4> SwapChain{};
         ComPtr<IDXGIFactory4> Factory{};
 

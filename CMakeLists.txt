@@ -37,7 +37,7 @@ target_link_libraries(ModernCppDX12Renderer PRIVATE
 
 if (MSVC)
     # Force x64 visibility for Windows headers during scanDependencies
-    target_compile_definitions(ModernCppDX12Renderer PRIVATE _AMD64_ _M_AMD64 WIN64)
+    target_compile_definitions(ModernCppDX12Renderer PRIVATE _AMD64_ _M_AMD64 WIN64 WIN32_LEAN_AND_MEAN NOMINMAX)
 
     # ---- Manual std module build (Ninja-safe) ----
     set(STL_MODULE_DIR "$ENV{VCToolsInstallDir}/modules")

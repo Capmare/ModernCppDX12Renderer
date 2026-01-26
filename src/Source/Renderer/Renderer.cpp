@@ -4,18 +4,18 @@
 
 
 module;
-#include <cstdint>
-#include <windows.h>
-#include <wrl/client.h>
+
 #include <d3d12.h>
 #include "../../d3dx12.h"
 #include <DXGI.h>
-#include <cstdio>
+#include <stdio.h>
 
 
 module HOX.Renderer;
 
 import std;
+import HOX.Types;
+import HOX.Win32;
 import HOX.Logger;
 
 
@@ -64,14 +64,17 @@ namespace HOX {
 
     ComPtr<ID3D12DescriptorHeap> Renderer::CreateDescriptorHeap(ComPtr<ID3D12Device10> Device,
                                                                 D3D12_DESCRIPTOR_HEAP_TYPE Type,
-                                                                uint32_t NumDescriptors) {
+                                                                u32 NumDescriptors) {
         ComPtr<ID3D12DescriptorHeap> DescriptorHeap{};
 
         D3D12_DESCRIPTOR_HEAP_DESC HeapDesc{};
         HeapDesc.Type = Type;
         HeapDesc.NumDescriptors = NumDescriptors;
 
-        HRESULT Hr = Device->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&DescriptorHeap));
+        HRESULT Hr = Device->CreateDescriptorHeap(&HeapDesc,
+            HOX::Win32::UuidOf<ID3D12DescriptorHeap>(),
+            HOX::Win32::PpvArgs(DescriptorHeap.ReleaseAndGetAddressOf())
+            );
         if (FAILED(Hr)) {
             Logger::LogMessage(Severity::Error, "Failed to create descriptor heap.");
         } else {
@@ -86,9 +89,9 @@ namespace HOX {
         auto RTVDescriptorSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         D3D12_CPU_DESCRIPTOR_HANDLE RtvHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-        for (std::uint32_t i = 0; i < MaxFrames; i++) {
+        for (u32 i = 0; i < MaxFrames; i++) {
             ComPtr<ID3D12Resource2> BackBuffer{};
-            HRESULT Hr = SwapChain->GetBuffer(i, IID_PPV_ARGS(&BackBuffer));
+            HRESULT Hr = SwapChain->GetBuffer(i, HOX::Win32::UuidOf<ID3D12Resource2>(), HOX::Win32::PpvArgs(BackBuffer.ReleaseAndGetAddressOf()));
             if (FAILED(Hr)) {
                 Logger::LogMessage(Severity::Error, "Failed to get back buffer.");
             } else {
@@ -125,7 +128,7 @@ namespace HOX {
 
         UpdateRenderTarget(GetDeviceContext().m_Device, m_SwapChain->GetSwapChain(), m_RTVDescriptorHeap);
 
-        for (uint32_t i = 0; i < MaxFrames; i++) {
+        for (u32 i = 0; i < MaxFrames; i++) {
             m_CommandAllocators[i] = GetDeviceContext().m_CommandSystem->CreateCommandAllocator(
                 D3D12_COMMAND_LIST_TYPE_DIRECT);
         }
@@ -265,7 +268,7 @@ namespace HOX {
 
 
     void Renderer::Update() {
-        static uint64_t frameCounter = 0;
+        static u64 frameCounter = 0;
         static double elapsedSeconds = 0.0;
         static std::chrono::high_resolution_clock clock;
         static auto t0 = clock.now();
@@ -292,7 +295,7 @@ namespace HOX {
         CloseHandle(m_Fence->GetFenceEvent());
     }
 
-    void Renderer::ResizeSwapChain(const uint32_t Width, const uint32_t Height) {
+    void Renderer::ResizeSwapChain(const u32 Width, const u32 Height) {
         if (!m_SwapChain) { Logger::LogMessage(Severity::ErrorNoCrash, "Failed to resize window due to swapchain."); return; }
         if (!m_Fence) { Logger::LogMessage(Severity::ErrorNoCrash, "Failed to resize window due to fence."); return; }
 

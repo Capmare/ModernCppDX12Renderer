@@ -72,14 +72,14 @@ namespace HOX {
     }
 
     void CommandSystem::FlushCommands(ComPtr<ID3D12Fence> Fence,
-                                      uint64_t &FenceValue, HANDLE FenceEvent) {
-        uint64_t FenceValueForSignal{Signal(Fence, FenceValue)};
+                                      u64 &FenceValue, HANDLE FenceEvent) {
+        u64 FenceValueForSignal{Signal(Fence, FenceValue)};
         WaitForFenceValues(Fence, FenceValueForSignal, FenceEvent);
     }
 
-    uint64_t CommandSystem::Signal(ComPtr<ID3D12Fence> Fence,
-                                   uint64_t& FenceValue) {
-        uint64_t SignalValue = ++FenceValue;
+    u64 CommandSystem::Signal(ComPtr<ID3D12Fence> Fence,
+                                   u64& FenceValue) {
+        u64 SignalValue = ++FenceValue;
         HRESULT Hr = GetDeviceContext().m_CommandQueue->Signal(Fence.Get(), SignalValue);
 
         if (FAILED(Hr)) {
@@ -89,7 +89,7 @@ namespace HOX {
         return SignalValue;
     }
 
-    void CommandSystem::WaitForFenceValues(ComPtr<ID3D12Fence> Fence, uint64_t FenceValue, HANDLE FenceEvent) {
+    void CommandSystem::WaitForFenceValues(ComPtr<ID3D12Fence> Fence, u64 FenceValue, HANDLE FenceEvent) {
         if (Fence->GetCompletedValue() < FenceValue) {
             HRESULT Hr = Fence->SetEventOnCompletion(FenceValue, FenceEvent);
             if (FAILED(Hr)) {

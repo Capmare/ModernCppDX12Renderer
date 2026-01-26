@@ -3,13 +3,12 @@
 //
 
 module;
-#include <cstdint>
-#include <windows.h>
-#include <wrl/client.h>
+
 #include <d3d12.h>
 
 export module HOX.CommandSystem;
 
+import HOX.Types;
 import HOX.Fence;
 
 export namespace HOX {
@@ -30,11 +29,11 @@ export namespace HOX {
                                                              ComPtr<ID3D12CommandAllocator> CommandAllocator,
                                                              D3D12_COMMAND_LIST_TYPE Type);
 
-        std::uint64_t Signal(ComPtr<ID3D12Fence> Fence, uint64_t &FenceValue);
+        u64 Signal(ComPtr<ID3D12Fence> Fence, u64 &FenceValue);
 
-        void WaitForFenceValues(ComPtr<ID3D12Fence> Fence, uint64_t FenceValue, HANDLE FenceEvent);
+        void WaitForFenceValues(ComPtr<ID3D12Fence> Fence, u64 FenceValue, HANDLE FenceEvent);
 
-        void FlushCommands(ComPtr<ID3D12Fence> Fence, uint64_t &FenceValue, HANDLE FenceEvent);
+        void FlushCommands(ComPtr<ID3D12Fence> Fence, u64 &FenceValue, HANDLE FenceEvent);
 
     private:
         ComPtr<ID3D12CommandQueue> CreateCommandQueue(D3D12_COMMAND_LIST_TYPE Type);

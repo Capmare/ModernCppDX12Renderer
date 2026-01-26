@@ -5,13 +5,13 @@
 module;
 #include <d3d12.h>
 #include <dxgi1_5.h>
-#include <windows.h>
-#include <wrl/client.h>
-#include <cstdint>
+
 
 export module HOX.Renderer;
 
 import std;
+import HOX.Win32;
+import HOX.Types;
 import HOX.DeviceManager;
 import HOX.SwapChain;
 import HOX.Fence;
@@ -19,7 +19,7 @@ import HOX.Context;
 
 export namespace HOX {
 
-    using Microsoft::WRL::ComPtr;
+    using HOX::Win32::ComPtr;
 
     class Renderer {
     public:
@@ -38,7 +38,7 @@ export namespace HOX {
         void Update();
         void CleanUpRenderer();
 
-        void ResizeSwapChain(const uint32_t Width, const uint32_t Height);
+        void ResizeSwapChain(const u32 Width, const u32 Height);
     private:
         // Swapchain || Synchronization
         std::unique_ptr<HOX::Fence> m_Fence{};
@@ -48,7 +48,7 @@ export namespace HOX {
         bool m_bFullScreen{false};
 
         // Descriptor heap (descriptor sets in vulkan)
-        ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ComPtr<ID3D12Device10> Device,D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t NumDescriptors);
+        ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ComPtr<ID3D12Device10> Device,D3D12_DESCRIPTOR_HEAP_TYPE Type, u32 NumDescriptors);
 
         // RTV
         void UpdateRenderTarget(ComPtr<ID3D12Device10> Device, ComPtr<IDXGISwapChain4> SwapChain,ComPtr<ID3D12DescriptorHeap> DescriptorHeap);

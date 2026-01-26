@@ -5,8 +5,8 @@
 module;
 #include <d3d12.h>
 #include <dxgi1_6.h>
-#include <wrl/client.h>
 
+import HOX.Win32;
 
 export module HOX.DeviceManager;
 
@@ -14,7 +14,7 @@ import std;
 
 export namespace HOX {
 
-    using Microsoft::WRL::ComPtr;
+    using HOX::Win32::ComPtr;
 
 class DeviceManager {
 

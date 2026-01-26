@@ -2,18 +2,17 @@
 // Created by david on 10/27/2025.
 //
 
-module;
-#include <Windows.h>
 
 export module HOX.Window;
 
+import HOX.Win32;
 import std;
 import HOX.Renderer;
 
 export namespace HOX {
     class Window {
     public:
-        Window(const HINSTANCE& hInstance, int nCmdShow);
+        Window(const HOX::Win32::HINSTANCE& hInstance, int nCmdShow);
         ~Window() = default;
 
         // Prevent copy and move
@@ -22,7 +21,7 @@ export namespace HOX {
         Window(Window&&) = delete;
         Window& operator=(Window&&) = delete;
 
-        LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+        HOX::Win32::LRESULT WindowProc(HOX::Win32::HWND hwnd, HOX::Win32::UINT uMsg,HOX::Win32::WPARAM wParam, HOX::Win32::LPARAM lParam);
 
 
         void Run();
@@ -30,10 +29,10 @@ export namespace HOX {
         std::tuple<int, int, int, int> GetWindowLocationAndDimension();
         void SetWindowLocationAndDimension(std::tuple<int, int, int,int> NewLocation);
     private:
-        static LRESULT CALLBACK WindowThunk(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+        static HOX::Win32::LRESULT WindowThunk(HOX::Win32::HWND hwnd, HOX::Win32::UINT uMsg, HOX::Win32::WPARAM wParam, HOX::Win32::LPARAM lParam);
 
         std::unique_ptr<HOX::Renderer> m_Renderer;
-        HWND m_Window{};
+        HOX::Win32::HWND m_Window{};
 
         int m_Xloc{300};
         int m_Yloc{300};

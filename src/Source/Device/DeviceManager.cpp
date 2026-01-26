@@ -7,7 +7,6 @@ module;
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <dxgidebug.h>
-#include <combaseapi.h>
 
 
 module HOX.DeviceManager;

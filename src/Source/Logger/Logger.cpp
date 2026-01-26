@@ -2,16 +2,15 @@
 // Created by david on 10/27/2025.
 //
 
-module;
-#include <windows.h>
 
 
 module HOX.Logger;
 import std;
+import HOX.Win32;
 
 namespace HOX {
    void Logger::LogMessage(const Severity &MessageSeverity, const std::string &Message,
-                            DWORD ErrorCode, const std::source_location &Location) {
+                            HOX::Win32::DWORD ErrorCode, const std::source_location &Location) {
         std::string SeverityStr;
         std::string Color;
 
@@ -40,19 +39,19 @@ namespace HOX {
 
         std::wstring ErrorMessageW;
         if ((MessageSeverity == Severity::Error || MessageSeverity == Severity::ErrorNoCrash) && ErrorCode != 0) {
-            LPWSTR ErrorBuffer = nullptr;
-            FormatMessageW(
-                FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            HOX::Win32::LPWSTR ErrorBuffer = nullptr;
+            HOX::Win32::FormatMessageW_(
+                HOX::Win32::FormatMessageAllocateBuffer | HOX::Win32::FormatMessageFromSystem | HOX::Win32::FormatMessageIgnoreInsters,
                 nullptr,
                 ErrorCode,
-                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                (LPWSTR)&ErrorBuffer,
+                HOX::Win32::MakeLangId_(HOX::Win32::LanguageNeutral, HOX::Win32::SublanguageDefault),
+                (HOX::Win32::LPWSTR)&ErrorBuffer,
                 0,
                 nullptr
             );
 
             ErrorMessageW = ErrorBuffer ? ErrorBuffer : L"Unknown error.";
-            LocalFree(ErrorBuffer);
+            HOX::Win32::LocalFree_(ErrorBuffer);
         }
 
         // Convert wide string to narrow for console output

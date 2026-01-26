@@ -1,163 +1,159 @@
-﻿
-#include <cstdio>
-#include <windows.h>
-#include <dbghelp.h>
-
-
-import std;
+﻿import std;
+import HOX.Win32;
 import HOX.Window;
 
-// Initialize console and redirect standard streams
-void InitConsole() {
-    if (AllocConsole()) {
-        std::FILE* fp;
-        freopen_s(&fp, "CONOUT$", "w", stdout);
-        freopen_s(&fp, "CONOUT$", "w", stderr);
-        freopen_s(&fp, "CONIN$", "r", stdin);
+static void InitConsole()
+{
+    using namespace HOX::Win32;
+
+    if (AllocConsole_())
+    {
+        FILE* fp{};
+        Reopen(&fp, "CONOUT$", "w", Out());
+        Reopen(&fp, "CONOUT$", "w", Err());
+        Reopen(&fp, "CONIN$",  "r", In());
 
         std::cout.clear();
         std::cerr.clear();
         std::clog.clear();
-
         std::cout << "Console initialized.\n";
     }
 }
 
-// Map common SEH exception codes to strings
-const char* GetExceptionString(DWORD code) {
-    switch (code) {
-        case EXCEPTION_ACCESS_VIOLATION:       return "Access Violation";
-        case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:  return "Array Bounds Exceeded";
-        case EXCEPTION_BREAKPOINT:             return "Breakpoint";
-        case EXCEPTION_DATATYPE_MISALIGNMENT:  return "Datatype Misalignment";
-        case EXCEPTION_FLT_DIVIDE_BY_ZERO:     return "Floating-Point Divide by Zero";
-        case EXCEPTION_ILLEGAL_INSTRUCTION:    return "Illegal Instruction";
-        case EXCEPTION_INT_DIVIDE_BY_ZERO:     return "Integer Divide by Zero";
-        case EXCEPTION_STACK_OVERFLOW:         return "Stack Overflow";
-        default:                               return "Unknown Exception";
+static const char* GetExceptionString(HOX::Win32::DWORD code)
+{
+    using namespace HOX::Win32;
+
+    switch (code)
+    {
+        case ExAccessViolation:      return "Access Violation";
+        case ExArrayBoundsExceeded:  return "Array Bounds Exceeded";
+        case ExBreakpoint:           return "Breakpoint";
+        case ExDatatypeMisalignment: return "Datatype Misalignment";
+        case ExFltDivideByZero:      return "Floating-Point Divide by Zero";
+        case ExIllegalInstruction:   return "Illegal Instruction";
+        case ExIntDivideByZero:      return "Integer Divide by Zero";
+        case ExStackOverflow:        return "Stack Overflow";
+        default:                     return "Unknown Exception";
     }
 }
 
+static void PrintStackTrace(HOX::Win32::EXCEPTION_POINTERS* p)
+{
+    using namespace HOX::Win32;
 
-void PrintStackTrace(EXCEPTION_POINTERS* pExceptionInfo) {
-    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hConsole == INVALID_HANDLE_VALUE) return;
+    HANDLE hConsole = GetStdHandle_(StdOutputHandle);
+    if (hConsole == InvalidHandleValue()) return;
 
-    // Initialize DbgHelp
-    SymInitialize(GetCurrentProcess(), nullptr, TRUE);
+    SymInitialize_(CurrentProcess());
 
-    CONTEXT context = *pExceptionInfo->ContextRecord;
-    STACKFRAME64 stackFrame;
-    ZeroMemory(&stackFrame, sizeof(STACKFRAME64));
+    CONTEXT ctx = *p->ContextRecord;
+
+    STACKFRAME64 frame{};
+    ZeroMem(&frame, sizeof(frame));
 
 #ifdef _M_X64
-    DWORD machineType = IMAGE_FILE_MACHINE_AMD64;
-    stackFrame.AddrPC.Offset = context.Rip;
-    stackFrame.AddrPC.Mode = AddrModeFlat;
-    stackFrame.AddrFrame.Offset = context.Rbp;
-    stackFrame.AddrFrame.Mode = AddrModeFlat;
-    stackFrame.AddrStack.Offset = context.Rsp;
-    stackFrame.AddrStack.Mode = AddrModeFlat;
+    DWORD machine = MachineAmd64;
+    frame.AddrPC.Offset    = ctx.Rip;
+    frame.AddrPC.Mode      = AddrModeFlatMode;
+    frame.AddrFrame.Offset = ctx.Rbp;
+    frame.AddrFrame.Mode   = AddrModeFlatMode;
+    frame.AddrStack.Offset = ctx.Rsp;
+    frame.AddrStack.Mode   = AddrModeFlatMode;
 #else
-    DWORD machineType = IMAGE_FILE_MACHINE_I386;
-    stackFrame.AddrPC.Offset = context.Eip;
-    stackFrame.AddrPC.Mode = AddrModeFlat;
-    stackFrame.AddrFrame.Offset = context.Ebp;
-    stackFrame.AddrFrame.Mode = AddrModeFlat;
-    stackFrame.AddrStack.Offset = context.Esp;
-    stackFrame.AddrStack.Mode = AddrModeFlat;
+    DWORD machine = MachineI386;
+    frame.AddrPC.Offset    = ctx.Eip;
+    frame.AddrPC.Mode      = AddrModeFlatMode;
+    frame.AddrFrame.Offset = ctx.Ebp;
+    frame.AddrFrame.Mode   = AddrModeFlatMode;
+    frame.AddrStack.Offset = ctx.Esp;
+    frame.AddrStack.Mode   = AddrModeFlatMode;
 #endif
 
-    for (int i = 0; i < 62; i++) {
-        if (!StackWalk64(machineType, GetCurrentProcess(), GetCurrentThread(),
-                         &stackFrame, &context, nullptr,
-                         SymFunctionTableAccess64, SymGetModuleBase64, nullptr))
+    for (int i = 0; i < 62; ++i)
+    {
+        if (!StackWalk64_(machine, CurrentProcess(), CurrentThread(), &frame, &ctx))
+            break;
+        if (frame.AddrPC.Offset == 0)
             break;
 
-        if (stackFrame.AddrPC.Offset == 0)
-            break;
+        char buf[sizeof(SYMBOL_INFO) + 256]{};
+        auto* sym = reinterpret_cast<PSYMBOL_INFO>(buf);
+        sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+        sym->MaxNameLen   = 255;
 
-        char symbolBuffer[sizeof(SYMBOL_INFO) + 256] = {0};
-        PSYMBOL_INFO pSymbol = (PSYMBOL_INFO)symbolBuffer;
-        pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-        pSymbol->MaxNameLen = 255;
-
-        DWORD64 displacement = 0;
-        if (SymFromAddr(GetCurrentProcess(), stackFrame.AddrPC.Offset, &displacement, pSymbol)) {
-            std::cout << i << ": " << pSymbol->Name << " - 0x" << std::hex << pSymbol->Address << std::dec << "\n";
-        } else {
-            std::cout << i << ": ??? - 0x" << std::hex << stackFrame.AddrPC.Offset << std::dec << "\n";
-        }
+        DWORD64 disp{};
+        if (SymFromAddr_(CurrentProcess(), frame.AddrPC.Offset, &disp, sym))
+            std::cout << i << ": " << sym->Name << " - 0x" << std::hex << sym->Address << std::dec << "\n";
+        else
+            std::cout << i << ": ??? - 0x" << std::hex << frame.AddrPC.Offset << std::dec << "\n";
     }
 
-    SymCleanup(GetCurrentProcess());
+    SymCleanup_(CurrentProcess());
 }
 
+static HOX::Win32::LONG __stdcall CrashHandler(HOX::Win32::EXCEPTION_POINTERS* p)
+{
+    using namespace HOX::Win32;
 
-// Crash handler for unhandled exceptions
-LONG WINAPI CrashHandler(EXCEPTION_POINTERS* pExceptionInfo) {
-    // Ensure console exists
-    AllocConsole();
-    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hConsole == INVALID_HANDLE_VALUE) return EXCEPTION_EXECUTE_HANDLER;
+    AllocConsole_();
 
-    DWORD code = pExceptionInfo->ExceptionRecord->ExceptionCode;
-    void* addr = pExceptionInfo->ExceptionRecord->ExceptionAddress;
-    DWORD written;
+    HANDLE hConsole = GetStdHandle_(StdOutputHandle);
+    if (hConsole == InvalidHandleValue()) return ExExecuteHandler;
 
-    // Set console text color to red for errors
-    SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_INTENSITY);
+    DWORD code = p->ExceptionRecord->ExceptionCode;
+    void* addr = p->ExceptionRecord->ExceptionAddress;
 
-    char buffer[512];
-    snprintf(buffer, sizeof(buffer),
-             "Unhandled exception occurred!\n"
-             "Exception Code: 0x%08X (%s)\n"
-             "Faulting Address: %p\n"
-             "Press Enter to exit...\n",
-             code, GetExceptionString(code), addr);
+    SetConsoleColor(hConsole, FgRed | FgIntensity);
 
-    WriteConsoleA(hConsole, buffer, (DWORD)strlen(buffer), &written, nullptr);
+    char msg[512]{};
+    SNPrintf(msg, sizeof(msg),
+        "Unhandled exception occurred!\n"
+        "Exception Code: 0x%08X (%s)\n"
+        "Faulting Address: %p\n"
+        "Press Enter to exit...\n",
+        code, GetExceptionString(code), addr);
 
-    // Reset console text color
-    SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+    DWORD written{};
+    WriteConsoleA_(hConsole, msg, (DWORD)StrLen(msg), &written);
 
-    PrintStackTrace(pExceptionInfo);
+    SetConsoleColor(hConsole, FgRed | FgGreen | FgBlue);
 
+    PrintStackTrace(p);
 
-    // Wait for Enter key
-    HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
-    if (hInput != INVALID_HANDLE_VALUE) {
-        char buf[2];
-        DWORD read;
-        ReadConsoleA(hInput, buf, 2, &read, nullptr);
+    HANDLE hInput = GetStdHandle_(StdInputHandle);
+    if (hInput != InvalidHandleValue())
+    {
+        char tmp[2]{};
+        DWORD read{};
+        ReadConsoleA_(hInput, tmp, 2, &read);
     }
 
-
-    return EXCEPTION_EXECUTE_HANDLER;
+    return ExExecuteHandler;
 }
 
-
-int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-
-#if not _DEBUG
+int __stdcall WinMain(HOX::Win32::HINSTANCE hInstance, HOX::Win32::HINSTANCE, char*, int nCmdShow)
+{
+#if !defined(_DEBUG)
     InitConsole();
-    SetUnhandledExceptionFilter(CrashHandler);
+    HOX::Win32::SetUnhandledExceptionFilter_((HOX::Win32::LPTOP_LEVEL_EXCEPTION_FILTER)&CrashHandler);
 #endif
 
-
-    try {
-        std::unique_ptr<HOX::Window> Window = std::make_unique<HOX::Window>(hInstance, nCmdShow);
-        Window->SetWindowLocationAndDimension({300, 300, 1920, 1080});
-        Window->Run();
-    } catch (const std::exception &e) {
-        std::cerr << "Fatal Error: " << e.what() << "\n";
-        std::cerr << "Press Enter to exit...\n";
+    try
+    {
+        auto window = std::make_unique<HOX::Window>(hInstance, nCmdShow);
+        window->SetWindowLocationAndDimension({300, 300, 1920, 1080});
+        window->Run();
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Fatal Error: " << e.what() << "\nPress Enter...\n";
         std::cin.get();
         return -1;
-    } catch (...) {
-        std::cerr << "Unknown fatal error.\n";
-        std::cerr << "Press Enter to exit...\n";
+    }
+    catch (...)
+    {
+        std::cerr << "Unknown fatal error.\nPress Enter...\n";
         std::cin.get();
         return -1;
     }

@@ -3,16 +3,17 @@
 //
 
 module;
-#include <windows.h>
-#include <wrl/client.h>
+
 #include <d3d12.h>
-#include <cstdint>
+
+import HOX.Win32;
+import HOX.Types;
 
 // Engine exports
 export module HOX.Fence;
 
 export namespace HOX {
-    using Microsoft::WRL::ComPtr;
+    using HOX::Win32::ComPtr;
 
     class Fence {
     public:
@@ -33,13 +34,13 @@ export namespace HOX {
 
         [[nodiscard]] ComPtr<ID3D12Fence> GetFence() const { return m_Fence; }
         [[nodiscard]] HANDLE GetFenceEvent() const { return m_FenceEvent; }
-        uint64_t &GetFenceValue() { return m_FenceValue; }
+        u64 &GetFenceValue() { return m_FenceValue; }
 
 
     private:
         ComPtr<ID3D12Fence> m_Fence{};
         HANDLE m_FenceEvent{};
-        uint64_t m_FenceValue{};
+        u64 m_FenceValue{};
 
 
     };
