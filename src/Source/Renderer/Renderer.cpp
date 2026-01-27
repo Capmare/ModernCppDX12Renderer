@@ -263,7 +263,7 @@ namespace HOX {
 
         {
             m_SRVHeap = std::make_unique<DescriptorHeap>();
-            m_SRVHeap->Initialize(GetDeviceContext().m_Device.Get(),100, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,true);
+            m_SRVHeap->Initialize(GetDeviceContext().m_Device.Get(),1000, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,true);
         }
 
         m_CommandAllocators[0]->Reset();
@@ -524,7 +524,7 @@ namespace HOX {
         m_CommandAllocators[0]->Reset();
         m_CommandList->Reset(m_CommandAllocators[0].Get(), nullptr);
 
-        m_GO->m_Model = std::move(m_ModelLoader->LoadFromFile("../Resources/Explorer/scene.gltf",m_CommandList.Get(),m_SRVHeap.get()));
+        m_GO->m_Model = std::move(m_ModelLoader->LoadFromFile("../Resources/Sponza/sponza.glb",m_CommandList.Get(),m_SRVHeap.get()));
 
         m_CommandList->Close();
         ID3D12CommandList* CommandLists[] = { m_CommandList.Get() };
@@ -541,7 +541,7 @@ namespace HOX {
         }
 
         m_GO->m_Transform.Position = {0.f,0.f,0.f};
-        m_GO->m_Transform.SetRotationEuler(-90.f,90.f,0.f);
+        //m_GO->m_Transform.SetRotationEuler(-90.f,90.f,0.f);
         m_GO->CreateConstantBuffer();
         m_Scene->AddGameObject(std::move(m_GO));
 

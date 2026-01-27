@@ -44,7 +44,7 @@ export namespace HOX {
 
         void UpdateAspectRatio(float NewAspectRatio);
 
-        const float m_MovementSpeed = 5.0f;
+        const float m_MovementSpeed = 300.0f;
         const float m_MouseSensitivity = 0.001f;
     private:
         void UpdateViewMatrix();
@@ -60,7 +60,7 @@ export namespace HOX {
         float m_FovY{DirectX::XM_PIDIV4};
         float m_AspectRatio{16.f/9.f};
         float m_ZNear{0.1f};
-        float m_ZFar{100.0f};
+        float m_ZFar{100000.0f};
 
         bool m_ViewDirty{true};
 

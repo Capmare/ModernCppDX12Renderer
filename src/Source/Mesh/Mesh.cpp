@@ -74,7 +74,7 @@ namespace HOX {
         auto& Allocator = GetDeviceContext().m_Allocator;
         if (Allocator) {
             if (m_VertexBuffer.Allocation) { Allocator->FreeAllocation(m_VertexBuffer); }
-            if (m_IndexBuffer.Allocation) { Allocator->FreeAllocation(m_IndexBuffer); }
+            if (m_IndexBuffer.Allocation) { Allocator->FreeAllocation(m_IndexBuffer); } // TODO: crashes here on release
         }
 
         m_VertexCount = 0;

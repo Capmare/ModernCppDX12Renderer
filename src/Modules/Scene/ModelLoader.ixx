@@ -41,12 +41,12 @@ export namespace HOX {
             const std::string &Directory,
             Model &OutModel,
             ID3D12GraphicsCommandList *CommandList,
-            DescriptorHeap *SRVHeap);
+            DescriptorHeap *SRVHeap, std::unordered_map<std::string, i32> &textureCache);
 
     private:
         static void ProcessNode(const aiNode *Node, const aiScene *Scene, Model &OutModel, const std::string &Directory,
-                                ID3D12GraphicsCommandList *
-                                CommandList, DescriptorHeap *SRVHeap);
+                                ID3D12GraphicsCommandList *CommandList, DescriptorHeap *SRVHeap, std::unordered_map<std::string, i32> &textureCache, std
+                                ::vector<i32> &materialDiffuseCache);
 
         static std::unique_ptr<Mesh> ProcessMesh(const aiMesh *AiMesh, const aiScene &Scene, i32 TextureIndex);
     };

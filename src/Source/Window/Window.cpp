@@ -106,9 +106,12 @@ namespace HOX {
                     InputManager->m_Input.MouseDeltaY = 0;
                     SetCursorPos(InputManager->m_ScreenCenterX, InputManager->m_ScreenCenterY);
 
-                } else {
-                    // Show cursor again
+                }
+                break;
+            case WM_RBUTTONUP:
+                if (InputManager->m_MouseCaptured) {
                     ShowCursor(TRUE);
+                    InputManager->m_MouseCaptured = !InputManager->m_MouseCaptured;
                 }
                 break;
             case WM_MOUSEMOVE:
