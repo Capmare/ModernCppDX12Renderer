@@ -261,6 +261,60 @@ namespace HOX {
                                                        GetDeviceContext().m_Adapter.Get());
         }
 
+        {
+            m_SRVHeap = std::make_unique<DescriptorHeap>();
+            m_SRVHeap->Initialize(GetDeviceContext().m_Device.Get(),100, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,true);
+        }
+
+        m_CommandAllocators[0]->Reset();
+        m_CommandList->Reset(m_CommandAllocators[0].Get(), nullptr);
+
+        // Default 1x1 Magenta texture
+        {
+            m_DefaultTexture = std::make_unique<Texture>();
+            unsigned char MagentaPixel[4] = {255, 0, 255, 255};
+            m_DefaultTexture->CreateFromPixels(MagentaPixel, 1, 1, m_CommandList.Get());
+
+            // Create SRV for default texture
+            u32 srvIndex = m_SRVHeap->Allocate();
+            m_DefaultTexture->SetSRVIndex(srvIndex);
+
+            D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+            srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srvDesc.Texture2D.MipLevels = 1;
+
+            GetDeviceContext().m_Device->CreateShaderResourceView(
+                m_DefaultTexture->GetResource(),
+                &srvDesc,
+                m_SRVHeap->GetCPUHandle(srvIndex));
+
+            // Execute command list to upload the texture to GPU
+            m_CommandList->Close();
+            ID3D12CommandList* lists[] = {m_CommandList.Get()};
+            GetDeviceContext().m_CommandQueue->ExecuteCommandLists(1, lists);
+
+            // Wait for upload to complete
+            GetDeviceContext().m_CommandSystem->FlushCommands(
+                m_Fence->GetFence(),
+                m_Fence->GetFenceValue(),
+                m_Fence->GetFenceEvent());
+
+            // Reset command list for further use
+            m_CommandAllocators[0]->Reset();
+            m_CommandList->Reset(m_CommandAllocators[0].Get(), nullptr);
+            m_CommandList->Close();
+
+
+        }
+
+        u64 currentFenceValue = m_Fence->GetFenceValue();
+        for (u32 i = 0; i < MaxFrames; ++i) {
+            m_SwapChain->m_FrameFenceValues[i] = currentFenceValue;
+        }
+
+
         // setting up triangle
         Vertex TriangleVertices[] = {
             // First triangle (front, Z=0)
@@ -402,7 +456,7 @@ namespace HOX {
         }
 
         // Root parameter for constant buffer
-        D3D12_ROOT_PARAMETER RootParameter[2] = {};
+        D3D12_ROOT_PARAMETER RootParameter[3] = {};
         RootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // constat buffer view
         RootParameter[0].Descriptor.ShaderRegister = 0; // register b0
         RootParameter[0].Descriptor.RegisterSpace = 0;
@@ -413,12 +467,41 @@ namespace HOX {
         RootParameter[1].Descriptor.RegisterSpace = 0;
         RootParameter[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
 
+
+        D3D12_DESCRIPTOR_RANGE SRVRange = {};
+        SRVRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        SRVRange.NumDescriptors = 1;
+        SRVRange.BaseShaderRegister = 0; // t0
+        SRVRange.RegisterSpace = 0;
+        SRVRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+        RootParameter[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        RootParameter[2].DescriptorTable.NumDescriptorRanges = 1;
+        RootParameter[2].DescriptorTable.pDescriptorRanges = &SRVRange;
+        RootParameter[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+        // static sampler for texture filtering
+        D3D12_STATIC_SAMPLER_DESC StaticSampler{};
+        StaticSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;  // Bilinear filtering
+        StaticSampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        StaticSampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        StaticSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        StaticSampler.MipLODBias = 0.0f;
+        StaticSampler.MaxAnisotropy = 1;
+        StaticSampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+        StaticSampler.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
+        StaticSampler.MinLOD = 0.0f;
+        StaticSampler.MaxLOD = D3D12_FLOAT32_MAX;
+        StaticSampler.ShaderRegister = 0;  // s0
+        StaticSampler.RegisterSpace = 0;
+        StaticSampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
         // root signatures
         D3D12_ROOT_SIGNATURE_DESC RootSignatureDesc = {};
-        RootSignatureDesc.NumParameters = 2;
+        RootSignatureDesc.NumParameters = 3;
         RootSignatureDesc.pParameters = RootParameter;
-        RootSignatureDesc.NumStaticSamplers = 0;
-        RootSignatureDesc.pStaticSamplers = nullptr;
+        RootSignatureDesc.NumStaticSamplers = 1;
+        RootSignatureDesc.pStaticSamplers = &StaticSampler;
         RootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
         Hr = D3D12SerializeRootSignature(
@@ -635,6 +718,11 @@ namespace HOX {
         {
             m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
             m_CommandList->SetPipelineState(m_PipelineState.Get());
+
+            ID3D12DescriptorHeap* Heaps[] = {m_SRVHeap->GetD3D12DescriptorHeap() };
+            m_CommandList->SetDescriptorHeaps(1, Heaps);
+
+            m_CommandList->SetGraphicsRootDescriptorTable(2, m_SRVHeap->GetGPUHandle(m_DefaultTexture->GetSRVIndex()));
 
             // Camera movement && and binding
             {

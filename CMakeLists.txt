@@ -19,6 +19,7 @@ file(GLOB_RECURSE SRC_MODULES CONFIGURE_DEPENDS
 )
 
 include(FetchContent)
+set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/.deps" CACHE PATH "FetchContent download cache")
 FetchContent_Declare(
         assimp
         GIT_REPOSITORY https://github.com/assimp/assimp.git
@@ -95,6 +96,7 @@ target_sources(ModernCppDX12Renderer PRIVATE ${SHADER_FILES})
 source_group(TREE "${SHADER_SRC_DIR}" PREFIX "Shaders" FILES ${SHADER_FILES})
 
 add_custom_command(TARGET ModernCppDX12Renderer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:ModernCppDX12Renderer>/Shaders"
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:ModernCppDX12Renderer>/Shaders"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${SHADER_SRC_DIR}"
@@ -108,9 +110,11 @@ target_link_libraries(ModernCppDX12Renderer PRIVATE
 # D3D12 Memory Allocator
 target_sources(ModernCppDX12Renderer PRIVATE
         "${CMAKE_SOURCE_DIR}/src/ThirdParty/D3D12MA/D3D12MemAlloc.cpp"
+        "${CMAKE_SOURCE_DIR}/src/ThirdParty/STBImage/stb_image.cpp"
 )
 target_include_directories(ModernCppDX12Renderer PRIVATE
         "${CMAKE_SOURCE_DIR}/src/ThirdParty/D3D12MA"
+        "${CMAKE_SOURCE_DIR}/src/ThirdParty/STBImage"
 )
 
 if (MSVC)

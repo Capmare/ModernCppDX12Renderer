@@ -22,6 +22,8 @@ import HOX.ModelLoader;
 import HOX.GameObject;
 import HOX.Mesh;
 import HOX.Model;
+import HOX.Texture;
+import HOX.DescriptorHeap;
 
 export namespace HOX {
 
@@ -110,6 +112,10 @@ export namespace HOX {
         ComPtr<ID3D12Resource>  m_CameraConstantbuffer{};
         void* m_CameraConstantBufferMapped{nullptr}; // its faster to keep the buffer mapped
 
+
+        // SRV heap for textures
+        std::unique_ptr<DescriptorHeap> m_SRVHeap{};
+        std::unique_ptr<Texture> m_DefaultTexture{};
 
 
         bool m_bTearingSupported{false};

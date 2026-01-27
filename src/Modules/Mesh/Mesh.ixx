@@ -44,8 +44,11 @@ export namespace HOX {
 
         void Release();
 
-        u32 GetIndexCount() const { return m_IndexCount; };
-        u32 GetVertexCount() const { return m_VertexCount; };
+        [[nodiscard]] u32 GetIndexCount() const { return m_IndexCount; };
+        [[nodiscard]] u32 GetVertexCount() const { return m_VertexCount; };
+
+        void SetTexture(i32 Index) {m_TextureIndex = Index; };
+        [[nodiscard]] i32 GetTextureIndex() const { return m_TextureIndex; };
 
     private:
         BufferAllocation m_VertexBuffer{};
@@ -56,6 +59,9 @@ export namespace HOX {
 
         u32 m_VertexCount{0};
         u32 m_IndexCount{0};
+
+        i32 m_TextureIndex{-1}; // no texture
+
     };
 
 }
