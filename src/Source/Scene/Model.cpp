@@ -6,6 +6,8 @@ module HOX.Model;
 
 import std;
 import HOX.Mesh;
+import HOX.DescriptorHeap;
+import HOX.Types;
 
 namespace HOX {
     void Model::AddMesh(std::unique_ptr<Mesh> Mesh) {
@@ -20,8 +22,20 @@ namespace HOX {
         }
     }
 
-    void Model::Draw(ID3D12GraphicsCommandList *CommandList) const {
-        for (auto& Mesh : m_Meshes) {
+    void Model::Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultTextureIndex) const {
+        for (std::size_t i = 0; i < m_Meshes.size(); ++i) {
+            auto& Mesh = m_Meshes[i];
+            // Bind the correct texture for this mesh
+            i32 TextureIdx = Mesh->GetTextureIndex();
+            if (TextureIdx >= 0 && TextureIdx < static_cast<i32>(m_Textures.size())) {
+                // Use mesh's texture
+                u32 SrvIndex = m_Textures[TextureIdx]->GetSRVIndex();
+                CommandList->SetGraphicsRootDescriptorTable(2, SRVHeap->GetGPUHandle(SrvIndex));
+            } else {
+                // Use default texture
+                CommandList->SetGraphicsRootDescriptorTable(2, SRVHeap->GetGPUHandle(DefaultTextureIndex));
+            }
+
             Mesh->Bind(CommandList);
             Mesh->Draw(CommandList);
         }

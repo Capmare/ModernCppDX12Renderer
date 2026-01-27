@@ -15,12 +15,10 @@ import HOX.Transform;
 import HOX.MemoryAllocator;
 import HOX.Context;
 import HOX.Logger;
+import HOX.DescriptorHeap;
 
 
 namespace HOX {
-    GameObject::~GameObject() {
-        Release();
-    }
 
     void GameObject::CreateConstantBuffer() {
         auto& Allocator = GetDeviceContext().m_Allocator;
@@ -40,6 +38,10 @@ namespace HOX {
         }
 
         UpdateConstantBuffer();
+
+        GetDeviceContext().m_Cleaner->AddToCleaner([this]() {
+            this->Release();
+        });
     }
 
     void GameObject::UpdateConstantBuffer() const {
@@ -54,14 +56,14 @@ namespace HOX {
 
     }
 
-    void GameObject::Draw(ID3D12GraphicsCommandList *CommandList) {
+    void GameObject::Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultTextureIndex) {
         if (!m_Model || !m_ConstantBufferAllocation.Resource) return;
 
         CommandList->SetGraphicsRootConstantBufferView(
             1,
             m_ConstantBufferAllocation.Resource->GetGPUVirtualAddress());
 
-        m_Model->Draw(CommandList);
+        m_Model->Draw(CommandList, SRVHeap, DefaultTextureIndex);
     }
 
     void GameObject::Release() {

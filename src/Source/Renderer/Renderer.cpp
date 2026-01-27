@@ -309,67 +309,7 @@ namespace HOX {
 
         }
 
-        u64 currentFenceValue = m_Fence->GetFenceValue();
-        for (u32 i = 0; i < MaxFrames; ++i) {
-            m_SwapChain->m_FrameFenceValues[i] = currentFenceValue;
-        }
-
-
-        // setting up triangle
-        Vertex TriangleVertices[] = {
-            // First triangle (front, Z=0)
-            {{0.0f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-            {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-            {{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-
-            // Second triangle (behind, Z=0.5)
-            {{0.2f, 0.7f, 0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}},
-            {{0.7f, -0.3f, 0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}},
-            {{-0.3f, -0.3f, 0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}},
-        };
-
         HRESULT Hr{};
-
-        {
-            D3D12_HEAP_PROPERTIES HeapProps = {};
-            HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // cpu can write gpu can read
-            HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-            HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-
-            D3D12_RESOURCE_DESC ResourceDesc = {};
-            ResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-            ResourceDesc.Alignment = 0;
-            ResourceDesc.Width = sizeof(TriangleVertices);
-            ResourceDesc.Height = 1;
-            ResourceDesc.DepthOrArraySize = 1;
-            ResourceDesc.MipLevels = 1;
-            ResourceDesc.MipLevels = 1;
-            ResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
-            ResourceDesc.SampleDesc.Count = 1;
-            ResourceDesc.SampleDesc.Quality = 0;
-            ResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-            ResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-            Hr = GetDeviceContext().m_Device->CreateCommittedResource(
-                &HeapProps,
-                D3D12_HEAP_FLAG_NONE,
-                &ResourceDesc,
-                D3D12_RESOURCE_STATE_GENERIC_READ,
-                nullptr,
-                HOX::Win32::UuidOf<ID3D12Resource>(), HOX::Win32::PpvArgs(m_VertexBuffer.ReleaseAndGetAddressOf()));
-        }
-
-        void *pData = nullptr;
-        D3D12_RANGE ReadRange = {0, 0};
-
-        m_VertexBuffer->Map(0, &ReadRange, &pData);
-        memcpy(pData, &TriangleVertices, sizeof(TriangleVertices));
-
-        m_VertexBuffer->Unmap(0, nullptr);
-
-        m_VertexBufferView.BufferLocation = m_VertexBuffer->GetGPUVirtualAddress();
-        m_VertexBufferView.SizeInBytes = sizeof(TriangleVertices);
-        m_VertexBufferView.StrideInBytes = sizeof(Vertex);
 
         // shader stage
 
@@ -580,8 +520,28 @@ namespace HOX {
         m_ModelLoader = std::make_unique<HOX::ModelLoader>();
         m_GO = std::make_unique<HOX::GameObject>();
         m_Scene = std::make_unique<Scene>();
-        m_GO->m_Model = std::move(m_ModelLoader->LoadFromFile("../Resources/Explorer/scene.gltf"));
+
+        m_CommandAllocators[0]->Reset();
+        m_CommandList->Reset(m_CommandAllocators[0].Get(), nullptr);
+
+        m_GO->m_Model = std::move(m_ModelLoader->LoadFromFile("../Resources/Explorer/scene.gltf",m_CommandList.Get(),m_SRVHeap.get()));
+
+        m_CommandList->Close();
+        ID3D12CommandList* CommandLists[] = { m_CommandList.Get() };
+        GetDeviceContext().m_CommandQueue->ExecuteCommandLists(1, CommandLists);
+        GetDeviceContext().m_CommandSystem->FlushCommands(
+            m_Fence->GetFence(),
+            m_Fence->GetFenceValue(),
+            m_Fence->GetFenceEvent()
+        );
+
+        u64 currentFenceValue = m_Fence->GetFenceValue();
+        for (u32 i = 0; i < MaxFrames; ++i) {
+            m_SwapChain->m_FrameFenceValues[i] = currentFenceValue;
+        }
+
         m_GO->m_Transform.Position = {0.f,0.f,0.f};
+        m_GO->m_Transform.SetRotationEuler(-90.f,90.f,0.f);
         m_GO->CreateConstantBuffer();
         m_Scene->AddGameObject(std::move(m_GO));
 
@@ -742,7 +702,7 @@ namespace HOX {
             m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
 
             if (m_Scene) {
-                m_Scene->Render(m_CommandList.Get());
+                m_Scene->Render(m_CommandList.Get(), m_SRVHeap.get(), m_DefaultTexture->GetSRVIndex());
             }
 
         }
@@ -821,6 +781,11 @@ namespace HOX {
     void Renderer::CleanUpRenderer() {
         GetDeviceContext().m_CommandSystem->FlushCommands(m_Fence->GetFence(), m_Fence->GetFenceValue(),
                                                           m_Fence->GetFenceEvent());
+
+        if (GetDeviceContext().m_Cleaner) {
+            GetDeviceContext().m_Cleaner->Clean();
+        }
+
         CloseHandle(m_Fence->GetFenceEvent());
     }
 

@@ -25,7 +25,7 @@ export namespace HOX {
     class MemoryAllocator {
     public:
         MemoryAllocator() = default;
-        virtual ~MemoryAllocator();
+        virtual ~MemoryAllocator() = default;
 
         MemoryAllocator(const MemoryAllocator&) = delete;
         MemoryAllocator(MemoryAllocator&&) noexcept = delete;
@@ -40,5 +40,7 @@ export namespace HOX {
 
     private:
         D3D12MA::Allocator* m_Allocator{nullptr};
+
+        bool m_bReleased{false};
     };
 }

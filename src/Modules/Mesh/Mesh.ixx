@@ -29,7 +29,7 @@ export namespace HOX {
     class Mesh {
     public:
         Mesh() = default;
-        virtual ~Mesh();
+        virtual ~Mesh() = default;
 
         Mesh(const Mesh&) = delete;
         Mesh(Mesh&&) noexcept = delete;
@@ -61,6 +61,8 @@ export namespace HOX {
         u32 m_IndexCount{0};
 
         i32 m_TextureIndex{-1}; // no texture
+
+        bool m_bReleased{false};
 
     };
 

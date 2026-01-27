@@ -16,9 +16,7 @@ import HOX.Context;
 import HOX.Logger;
 
 namespace HOX {
-    Texture::~Texture() {
-        Release();
-    }
+
 
     bool Texture::LoadFromFile(const std::string &FilePath, ID3D12GraphicsCommandList *CommandLists) {
         int Width{};
@@ -36,7 +34,7 @@ namespace HOX {
         stbi_image_free(Pixels);
 
         if (Result) {
-            Logger::LogMessage(Severity::Error, std::format("Texture Created Succesfully '{} ({}x{})'",FilePath, Width, Height ));
+            Logger::LogMessage(Severity::Info, std::format("Texture Created Succesfully '{} ({}x{})'",FilePath, Width, Height ));
         }
         return Result;
     }
@@ -165,14 +163,23 @@ namespace HOX {
 
         CommandList->ResourceBarrier(1, &Barrier);
 
+        GetDeviceContext().m_Cleaner->AddToCleaner([this]() {
+            this->Release();
+        });
+
         return true;
     }
 
     void Texture::Release() {
-        auto& Allocator = GetDeviceContext().m_Allocator;
-        if (m_UploadBuffer.Resource && Allocator) {
-            Allocator->FreeAllocation(m_UploadBuffer);
+        if (m_bReleased) return;
+        m_bReleased = true;
+        if (GetDeviceContext().m_Allocator) {
+            auto& Allocator = GetDeviceContext().m_Allocator;
+            if (m_UploadBuffer.Resource) {
+                Allocator->FreeAllocation(m_UploadBuffer);
+            }
         }
+        m_UploadBuffer = {};
 
         m_TextureResource.Reset();
         m_Width = 0;

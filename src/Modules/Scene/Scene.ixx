@@ -9,6 +9,8 @@ export module HOX.Scene;
 
 import std;
 import HOX.GameObject;
+import HOX.DescriptorHeap;
+import HOX.Types;
 
 export namespace HOX {
     class Scene {
@@ -33,9 +35,9 @@ export namespace HOX {
             }
         }
 
-        void Render(ID3D12GraphicsCommandList* CommandList) {
+        void Render(ID3D12GraphicsCommandList* CommandList, DescriptorHeap* SRVHeap, u32 DefaultTextureIndex) {
             for (auto& GameObject : m_GameObjects) {
-                GameObject->Draw(CommandList);
+                GameObject->Draw(CommandList,SRVHeap, DefaultTextureIndex);
             }
         }
 

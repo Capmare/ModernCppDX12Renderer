@@ -14,6 +14,7 @@ import HOX.Win32;
 import HOX.Model;
 import HOX.Transform;
 import HOX.MemoryAllocator;
+import HOX.DescriptorHeap;
 
 export namespace HOX {
 
@@ -28,7 +29,7 @@ export namespace HOX {
     class GameObject {
     public:
         GameObject() = default;
-        virtual ~GameObject();
+        virtual ~GameObject() = default;
 
         GameObject(const GameObject&) = delete;
         GameObject(GameObject&&) noexcept = delete;
@@ -44,7 +45,7 @@ export namespace HOX {
 
         void UpdateConstantBuffer() const;
 
-        void Draw(ID3D12GraphicsCommandList *CommandList);
+        void Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultTextureIndex);
 
         void Release();
 

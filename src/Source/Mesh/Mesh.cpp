@@ -11,9 +11,7 @@ import HOX.Context;
 import HOX.Logger;
 
 namespace HOX {
-    Mesh::~Mesh() {
-        Release();
-    }
+
 
     void Mesh::CreateBuffers(const std::vector<MeshVertex> &Vertices, const std::vector<u32> &Indices) {
         auto& Allocator = GetDeviceContext().m_Allocator;
@@ -55,6 +53,10 @@ namespace HOX {
             "Mesh created: " + std::to_string(m_VertexCount) + " vertices, " +
             std::to_string(m_IndexCount) + " indices");
 
+        GetDeviceContext().m_Cleaner->AddToCleaner([this]() {
+           this->Release();
+        });
+
     }
 
     void Mesh::Bind(ID3D12GraphicsCommandList *CommandList) const {
@@ -67,6 +69,8 @@ namespace HOX {
     }
 
     void Mesh::Release() {
+        if (m_bReleased) return;
+        m_bReleased = true;
         auto& Allocator = GetDeviceContext().m_Allocator;
         if (Allocator) {
             if (m_VertexBuffer.Allocation) { Allocator->FreeAllocation(m_VertexBuffer); }

@@ -10,6 +10,8 @@ export module HOX.Model;
 import std;
 import HOX.Mesh;
 import HOX.Texture;
+import HOX.DescriptorHeap;
+import HOX.Types;
 
 export namespace HOX {
     class Model {
@@ -27,7 +29,7 @@ export namespace HOX {
         void AddTexture(std::unique_ptr<Texture> Texture);
 
 
-        void Draw(ID3D12GraphicsCommandList* CommandList) const;
+        void Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultTextureIndex) const;
 
         void Release();
 

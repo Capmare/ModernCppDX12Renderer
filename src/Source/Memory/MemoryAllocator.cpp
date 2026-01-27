@@ -11,11 +11,10 @@ module;
 module HOX.MemoryAllocator;
 
 import HOX.Logger;
+import HOX.Context;
 
 namespace HOX {
-    MemoryAllocator::~MemoryAllocator() {
-        ShutDown();
-    }
+
 
     void MemoryAllocator::Initialize(ID3D12Device *Device, IDXGIAdapter1 *Adapter) {
         D3D12MA::ALLOCATOR_DESC AllocatorDesc = {};
@@ -29,6 +28,9 @@ namespace HOX {
         }
         else Logger::LogMessage(Severity::Info, "Created allocator");
 
+        GetDeviceContext().m_Cleaner->AddToCleaner([this]() {
+            this->ShutDown();
+        });
     }
 
     void MemoryAllocator::ShutDown() {

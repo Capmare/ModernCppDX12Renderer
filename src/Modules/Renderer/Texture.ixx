@@ -19,7 +19,7 @@ export namespace HOX {
     class Texture {
     public:
         Texture() = default;
-        virtual ~Texture();
+        virtual ~Texture() = default;
 
         Texture(const Texture&) = delete;
         Texture& operator=(const Texture&) = delete;
@@ -49,6 +49,8 @@ export namespace HOX {
         u32 m_Width{};
         u32 m_Height{};
         u32 m_SRVIndex{};
+
+        bool m_bReleased{false};
 
     };
 
