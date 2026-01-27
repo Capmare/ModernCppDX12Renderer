@@ -17,6 +17,11 @@ import HOX.SwapChain;
 import HOX.Fence;
 import HOX.Context;
 import HOX.Camera;
+import HOX.Scene;
+import HOX.ModelLoader;
+import HOX.GameObject;
+import HOX.Mesh;
+import HOX.Model;
 
 export namespace HOX {
 
@@ -35,8 +40,8 @@ export namespace HOX {
         // Prevent copy and move
         Renderer(const Renderer &) = delete;
         Renderer &operator=(const Renderer &) = delete;
-        Renderer(Renderer &&) = delete;
-        Renderer &operator=(Renderer &&) = delete;
+        Renderer(Renderer &&) = default;
+        Renderer &operator=(Renderer &&) = default;
 
         void InitializeRenderer(HWND Hwnd);
         void Render();
@@ -75,6 +80,14 @@ export namespace HOX {
         ComPtr<ID3DBlob> ErrorBlob;
         ComPtr<ID3DBlob> VertexShaderBlob;
         ComPtr<ID3DBlob> PixelShaderBlob;
+
+
+        std::unique_ptr<HOX::Scene> m_Scene{};
+
+        std::unique_ptr<HOX::GameObject> m_GO{};
+        std::unique_ptr<HOX::ModelLoader> m_ModelLoader{};
+
+
 
 
         // root signature

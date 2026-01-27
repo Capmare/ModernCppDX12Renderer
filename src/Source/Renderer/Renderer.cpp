@@ -23,6 +23,10 @@ import HOX.Camera;
 import HOX.CommandSystem;
 import HOX.MemoryAllocator;
 import HOX.DeviceManager;
+import HOX.Scene;
+import HOX.ModelLoader;
+import HOX.GameObject;
+import HOX.Mesh;
 
 namespace HOX {
     Renderer::Renderer() {
@@ -398,16 +402,21 @@ namespace HOX {
         }
 
         // Root parameter for constant buffer
-        D3D12_ROOT_PARAMETER RootParameter = {};
-        RootParameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // constat buffer view
-        RootParameter.Descriptor.ShaderRegister = 0; // register b0
-        RootParameter.Descriptor.RegisterSpace = 0;
-        RootParameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+        D3D12_ROOT_PARAMETER RootParameter[2] = {};
+        RootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // constat buffer view
+        RootParameter[0].Descriptor.ShaderRegister = 0; // register b0
+        RootParameter[0].Descriptor.RegisterSpace = 0;
+        RootParameter[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+
+        RootParameter[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+        RootParameter[1].Descriptor.ShaderRegister = 1; // register b1
+        RootParameter[1].Descriptor.RegisterSpace = 0;
+        RootParameter[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
 
         // root signatures
         D3D12_ROOT_SIGNATURE_DESC RootSignatureDesc = {};
-        RootSignatureDesc.NumParameters = 1;
-        RootSignatureDesc.pParameters = &RootParameter;
+        RootSignatureDesc.NumParameters = 2;
+        RootSignatureDesc.pParameters = RootParameter;
         RootSignatureDesc.NumStaticSamplers = 0;
         RootSignatureDesc.pStaticSamplers = nullptr;
         RootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
@@ -448,11 +457,29 @@ namespace HOX {
 
         D3D12_INPUT_ELEMENT_DESC InputLayoutDesc[] = {
             {
-                "POSITION", // Name in shader
-                0, // Position 0
-                DXGI_FORMAT_R32G32B32_FLOAT, // float3
-                0, // INPUT SLOT
-                0, // BYTE OFFSET FROM START OF VERTEX
+                "POSITION",
+                0,
+                DXGI_FORMAT_R32G32B32_FLOAT,    // float3
+                0,
+                0,                               // offset 0
+                D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+                0
+            },
+            {
+                "NORMAL",
+                0,
+                DXGI_FORMAT_R32G32B32_FLOAT,    // float3
+                0,
+                12,                              // offset 12 (after position)
+                D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+                0
+            },
+            {
+                "TEXCOORD",
+                0,
+                DXGI_FORMAT_R32G32_FLOAT,       // float2
+                0,
+                24,                              // offset 24 (after position + normal)
                 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
                 0
             },
@@ -461,11 +488,23 @@ namespace HOX {
                 0,
                 DXGI_FORMAT_R32G32B32A32_FLOAT, // float4
                 0,
-                12, // 3* 4 Offset
+                32,                              // offset 32 (after position + normal + texcoord)
                 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
                 0
             }
         };
+
+        m_ModelLoader = std::make_unique<HOX::ModelLoader>();
+        m_GO = std::make_unique<HOX::GameObject>();
+        m_Scene = std::make_unique<Scene>();
+        m_GO->m_Model = std::move(m_ModelLoader->LoadFromFile("../Resources/Explorer/scene.gltf"));
+        m_GO->m_Transform.Position = {0.f,0.f,0.f};
+        m_GO->CreateConstantBuffer();
+        m_Scene->AddGameObject(std::move(m_GO));
+
+        Logger::LogMessage(Severity::Info, "Scene system initialized");
+
+
 
         const int WindowWidth = static_cast<int>(GetDeviceContext().m_WindowWidth);
         const int WindowHeight = static_cast<int>(GetDeviceContext().m_WindowHeight);
@@ -592,8 +631,6 @@ namespace HOX {
         }
 
 
-
-
         // Draw
         {
             m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
@@ -603,7 +640,7 @@ namespace HOX {
             {
                 const DirectX::XMMATRIX ViewProjection = m_Camera->GetViewProjectionMatrix();
 
-                CameraConstants Constants;
+                CameraConstants Constants{};
                 DirectX::XMStoreFloat4x4(&Constants.m_ViewProjection, ViewProjection);
                 memcpy(m_CameraConstantBufferMapped, &Constants, sizeof(Constants));
 
@@ -612,11 +649,14 @@ namespace HOX {
             }
 
 
-            m_CommandList->IASetVertexBuffers(0, 1, &m_VertexBufferView);
             m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             m_CommandList->RSSetViewports(1, &m_Viewport);
             m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
-            m_CommandList->DrawInstanced(6, 1, 0, 0);
+
+            if (m_Scene) {
+                m_Scene->Render(m_CommandList.Get());
+            }
+
         }
 
         {
@@ -644,7 +684,6 @@ namespace HOX {
                 m_Fence->GetFence(),
                 m_Fence->GetFenceValue()
             );
-
 
             // Present
             const UINT syncInterval = GetDeviceContext().m_bUseVSync ? 1 : 0;
@@ -685,6 +724,10 @@ namespace HOX {
         }
 
        m_Camera->Update(deltaTime);
+
+       if (m_Scene) {
+           m_Scene->Update(deltaTime);
+       }
     }
 
     void Renderer::CleanUpRenderer() {

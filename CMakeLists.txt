@@ -36,6 +36,45 @@ FetchContent_MakeAvailable(assimp)
 
 add_executable(ModernCppDX12Renderer WIN32)
 
+
+set(EXPLORER_RES_DIR "${CMAKE_SOURCE_DIR}/Resources/Explorer")
+
+file(GLOB_RECURSE MODEL_ASSET_FILES CONFIGURE_DEPENDS
+        "${EXPLORER_RES_DIR}/*.gltf"
+        "${EXPLORER_RES_DIR}/*.glb"
+        "${EXPLORER_RES_DIR}/*.bin"
+        "${EXPLORER_RES_DIR}/*.fbx"
+        "${EXPLORER_RES_DIR}/*.obj"
+        "${EXPLORER_RES_DIR}/*.dae"
+        "${EXPLORER_RES_DIR}/*.3ds"
+        "${EXPLORER_RES_DIR}/*.stl"
+        "${EXPLORER_RES_DIR}/*.ply"
+
+        "${EXPLORER_RES_DIR}/textures/*.png"
+        "${EXPLORER_RES_DIR}/textures/*.jpg"
+        "${EXPLORER_RES_DIR}/textures/*.jpeg"
+        "${EXPLORER_RES_DIR}/textures/*.tga"
+        "${EXPLORER_RES_DIR}/textures/*.bmp"
+        "${EXPLORER_RES_DIR}/textures/*.dds"
+        "${EXPLORER_RES_DIR}/textures/*.ktx"
+        "${EXPLORER_RES_DIR}/textures/*.ktx2"
+)
+
+target_sources(ModernCppDX12Renderer PRIVATE ${MODEL_ASSET_FILES})
+source_group(TREE "${EXPLORER_RES_DIR}" PREFIX "Resources/Explorer" FILES ${MODEL_ASSET_FILES})
+
+set(EXPLORER_OUT_DIR "$<TARGET_FILE_DIR:ModernCppDX12Renderer>/Resources/Explorer")
+
+add_custom_command(TARGET ModernCppDX12Renderer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${EXPLORER_OUT_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${MODEL_ASSET_FILES}
+        "${EXPLORER_OUT_DIR}"
+        VERBATIM
+)
+
+
+
 target_sources(ModernCppDX12Renderer PRIVATE
         ${SRC_FILES}
 )

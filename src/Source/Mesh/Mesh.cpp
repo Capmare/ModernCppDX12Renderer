@@ -2,6 +2,9 @@
 // Created by capma on 27-Jan-26.
 //
 
+module;
+#include <d3d12.h>
+
 module HOX.Mesh;
 
 import HOX.Context;
@@ -44,8 +47,8 @@ namespace HOX {
         std::memcpy(MappedData,Indices.data(),IndexBufferSize);
         m_IndexBuffer.Resource->Unmap(0,nullptr);
 
-        m_IndexBufferView.BufferLocation = m_VertexBuffer.Resource->GetGPUVirtualAddress();
-        m_IndexBufferView.SizeInBytes = static_cast<UINT>(VertexBufferSize);
+        m_IndexBufferView.BufferLocation = m_IndexBuffer.Resource->GetGPUVirtualAddress();
+        m_IndexBufferView.SizeInBytes = static_cast<UINT>(IndexBufferSize);
         m_IndexBufferView.Format = DXGI_FORMAT_R32_UINT; // 32bit indices
 
         Logger::LogMessage(Severity::Info,
