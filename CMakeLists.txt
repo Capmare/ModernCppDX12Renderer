@@ -18,6 +18,22 @@ file(GLOB_RECURSE SRC_MODULES CONFIGURE_DEPENDS
         "${CMAKE_SOURCE_DIR}/src/*.cppm"
 )
 
+include(FetchContent)
+FetchContent_Declare(
+        assimp
+        GIT_REPOSITORY https://github.com/assimp/assimp.git
+        GIT_TAG v5.4.3
+)
+
+# Disable features we don't need
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)  # Static library
+
+FetchContent_MakeAvailable(assimp)
+
+
 add_executable(ModernCppDX12Renderer WIN32)
 
 target_sources(ModernCppDX12Renderer PRIVATE
@@ -47,7 +63,7 @@ add_custom_command(TARGET ModernCppDX12Renderer POST_BUILD
 )
 
 target_link_libraries(ModernCppDX12Renderer PRIVATE
-        d3d12 dxgi d3dcompiler dxguid dbghelp
+        d3d12 dxgi d3dcompiler dxguid dbghelp assimp
 )
 
 # D3D12 Memory Allocator
