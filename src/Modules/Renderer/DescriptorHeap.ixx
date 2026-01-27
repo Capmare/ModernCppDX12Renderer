@@ -16,6 +16,9 @@ export namespace HOX {
 
     class DescriptorHeap {
     public:
+        static constexpr u32 DefaultInitialCapacity = 64;
+        static constexpr u32 GrowthFactor = 2;
+
         DescriptorHeap() = default;
         virtual ~DescriptorHeap() = default;
 
@@ -24,7 +27,7 @@ export namespace HOX {
         DescriptorHeap(DescriptorHeap&&) noexcept = default;
         DescriptorHeap& operator=(DescriptorHeap&&) noexcept = default;
 
-        bool Initialize(ID3D12Device* Device, u32 NumDescriptors, D3D12_DESCRIPTOR_HEAP_TYPE Type, bool ShaderVisible);
+        bool Initialize(D3D12_DESCRIPTOR_HEAP_TYPE Type, bool ShaderVisible, u32 InitialCapacity = DefaultInitialCapacity);
 
         u32 Allocate();
 
@@ -33,12 +36,20 @@ export namespace HOX {
 
         ID3D12DescriptorHeap* GetD3D12DescriptorHeap() const { return m_DescriptorHeap.Get(); };
 
-        u32 GetDescriptorSize() const { return m_DescriptorSize; };
+        [[nodiscard]] u32 GetDescriptorSize() const { return m_DescriptorSize; };
+        [[nodiscard]] u32 GetCapacity() const { return m_Capacity; };
+        [[nodiscard]] u32 GetAllocatedCount() const { return m_NextFreeIndex; };
 
     private:
+        bool Grow();
+
         ComPtr<ID3D12DescriptorHeap> m_DescriptorHeap{};
+        ID3D12Device* m_Device{nullptr};
+        D3D12_DESCRIPTOR_HEAP_TYPE m_HeapType{};
+        bool m_bShaderVisible{false};
+
         u32 m_DescriptorSize{};
-        u32 m_NumDescriptors{};
+        u32 m_Capacity{};
         u32 m_NextFreeIndex{};
     };
 }

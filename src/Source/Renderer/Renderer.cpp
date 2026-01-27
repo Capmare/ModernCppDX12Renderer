@@ -263,7 +263,7 @@ namespace HOX {
 
         {
             m_SRVHeap = std::make_unique<DescriptorHeap>();
-            m_SRVHeap->Initialize(GetDeviceContext().m_Device.Get(),1000, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,true);
+            m_SRVHeap->Initialize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
         }
 
         m_CommandAllocators[0]->Reset();
