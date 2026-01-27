@@ -14,6 +14,7 @@ import HOX.Win32;
 import HOX.MemoryAllocator;
 import HOX.Context;
 import HOX.Logger;
+import HOX.DescriptorHeap;
 
 namespace HOX {
 
@@ -184,5 +185,19 @@ namespace HOX {
         m_TextureResource.Reset();
         m_Width = 0;
         m_Height = 0;
+    }
+
+    void Texture::CreateSRV(DescriptorHeap* SRVHeap, DXGI_FORMAT Format) {
+        u32 SrvIndex = SRVHeap->Allocate();
+        SetSRVIndex(SrvIndex);
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc{};
+        SrvDesc.Format = Format;
+        SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        SrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        SrvDesc.Texture2D.MipLevels = 1;
+
+        GetDeviceContext().m_Device->CreateShaderResourceView(
+            GetResource(), &SrvDesc, SRVHeap->GetCPUHandle(SrvIndex));
     }
 }

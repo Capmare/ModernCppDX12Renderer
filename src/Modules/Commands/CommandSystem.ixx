@@ -35,6 +35,10 @@ export namespace HOX {
 
         void FlushCommands(ComPtr<ID3D12Fence> Fence, u64 &FenceValue, HANDLE FenceEvent);
 
+        void ExecuteAndFlush(ID3D12GraphicsCommandList* CommandList,
+                             ID3D12CommandAllocator* Allocator,
+                             ID3D12Fence* Fence, u64& FenceValue, HANDLE FenceEvent);
+
     private:
         ComPtr<ID3D12CommandQueue> CreateCommandQueue(D3D12_COMMAND_LIST_TYPE Type);
 

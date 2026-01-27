@@ -274,39 +274,15 @@ namespace HOX {
             m_DefaultTexture = std::make_unique<Texture>();
             unsigned char MagentaPixel[4] = {255, 0, 255, 255};
             m_DefaultTexture->CreateFromPixels(MagentaPixel, 1, 1, m_CommandList.Get());
+            m_DefaultTexture->CreateSRV(m_SRVHeap.get());
 
-            // Create SRV for default texture
-            u32 srvIndex = m_SRVHeap->Allocate();
-            m_DefaultTexture->SetSRVIndex(srvIndex);
-
-            D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-            srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-            srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-            srvDesc.Texture2D.MipLevels = 1;
-
-            GetDeviceContext().m_Device->CreateShaderResourceView(
-                m_DefaultTexture->GetResource(),
-                &srvDesc,
-                m_SRVHeap->GetCPUHandle(srvIndex));
-
-            // Execute command list to upload the texture to GPU
-            m_CommandList->Close();
-            ID3D12CommandList* lists[] = {m_CommandList.Get()};
-            GetDeviceContext().m_CommandQueue->ExecuteCommandLists(1, lists);
-
-            // Wait for upload to complete
-            GetDeviceContext().m_CommandSystem->FlushCommands(
-                m_Fence->GetFence(),
+            GetDeviceContext().m_CommandSystem->ExecuteAndFlush(
+                m_CommandList.Get(),
+                m_CommandAllocators[0].Get(),
+                m_Fence->GetFence().Get(),
                 m_Fence->GetFenceValue(),
                 m_Fence->GetFenceEvent());
-
-            // Reset command list for further use
-            m_CommandAllocators[0]->Reset();
-            m_CommandList->Reset(m_CommandAllocators[0].Get(), nullptr);
             m_CommandList->Close();
-
-
         }
 
         HRESULT Hr{};
@@ -526,14 +502,13 @@ namespace HOX {
 
         m_GO->m_Model = std::move(m_ModelLoader->LoadFromFile("../Resources/Sponza/sponza.glb",m_CommandList.Get(),m_SRVHeap.get()));
 
-        m_CommandList->Close();
-        ID3D12CommandList* CommandLists[] = { m_CommandList.Get() };
-        GetDeviceContext().m_CommandQueue->ExecuteCommandLists(1, CommandLists);
-        GetDeviceContext().m_CommandSystem->FlushCommands(
-            m_Fence->GetFence(),
+        GetDeviceContext().m_CommandSystem->ExecuteAndFlush(
+            m_CommandList.Get(),
+            m_CommandAllocators[0].Get(),
+            m_Fence->GetFence().Get(),
             m_Fence->GetFenceValue(),
-            m_Fence->GetFenceEvent()
-        );
+            m_Fence->GetFenceEvent());
+        m_CommandList->Close();
 
         u64 currentFenceValue = m_Fence->GetFenceValue();
         for (u32 i = 0; i < MaxFrames; ++i) {
@@ -682,7 +657,7 @@ namespace HOX {
             ID3D12DescriptorHeap* Heaps[] = {m_SRVHeap->GetD3D12DescriptorHeap() };
             m_CommandList->SetDescriptorHeaps(1, Heaps);
 
-            m_CommandList->SetGraphicsRootDescriptorTable(2, m_SRVHeap->GetGPUHandle(m_DefaultTexture->GetSRVIndex()));
+            m_CommandList->SetGraphicsRootDescriptorTable(RootParams::TextureSRV, m_SRVHeap->GetGPUHandle(m_DefaultTexture->GetSRVIndex()));
 
             // Camera movement && and binding
             {
@@ -692,7 +667,7 @@ namespace HOX {
                 DirectX::XMStoreFloat4x4(&Constants.m_ViewProjection, ViewProjection);
                 memcpy(m_CameraConstantBufferMapped, &Constants, sizeof(Constants));
 
-                m_CommandList->SetGraphicsRootConstantBufferView(0,
+                m_CommandList->SetGraphicsRootConstantBufferView(RootParams::CameraCBV,
                     m_CameraConstantbuffer->GetGPUVirtualAddress());
             }
 

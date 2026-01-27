@@ -29,11 +29,6 @@ export namespace HOX {
 
     using HOX::Win32::ComPtr;
 
-    struct Vertex {
-        DirectX::XMFLOAT3 Position{};
-        DirectX::XMFLOAT4 Color{};
-    };
-
     class Renderer {
     public:
         Renderer();
@@ -73,11 +68,6 @@ export namespace HOX {
         ComPtr<ID3D12GraphicsCommandList7> m_CommandList{};
 
         std::unique_ptr<Swapchain> m_SwapChain{};
-
-
-        // triangle rendering
-        ComPtr<ID3D12Resource> m_VertexBuffer{};
-        D3D12_VERTEX_BUFFER_VIEW m_VertexBufferView{};
 
         ComPtr<ID3DBlob> ErrorBlob;
         ComPtr<ID3DBlob> VertexShaderBlob;

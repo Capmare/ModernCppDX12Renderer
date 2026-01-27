@@ -30,10 +30,10 @@ namespace HOX {
             if (TextureIdx >= 0 && TextureIdx < static_cast<i32>(m_Textures.size())) {
                 // Use mesh's texture
                 u32 SrvIndex = m_Textures[TextureIdx]->GetSRVIndex();
-                CommandList->SetGraphicsRootDescriptorTable(2, SRVHeap->GetGPUHandle(SrvIndex));
+                CommandList->SetGraphicsRootDescriptorTable(RootParams::TextureSRV, SRVHeap->GetGPUHandle(SrvIndex));
             } else {
                 // Use default texture
-                CommandList->SetGraphicsRootDescriptorTable(2, SRVHeap->GetGPUHandle(DefaultTextureIndex));
+                CommandList->SetGraphicsRootDescriptorTable(RootParams::TextureSRV, SRVHeap->GetGPUHandle(DefaultTextureIndex));
             }
 
             Mesh->Bind(CommandList);

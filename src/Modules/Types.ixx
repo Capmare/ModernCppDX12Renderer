@@ -15,5 +15,11 @@ export namespace HOX {
     using i16 = std::int16_t;
     using i32 = std::int32_t;
     using i64 = std::int64_t;
+
+    namespace RootParams {
+        constexpr u32 CameraCBV = 0;    // b0 - view/projection matrix
+        constexpr u32 ObjectCBV = 1;    // b1 - world matrix
+        constexpr u32 TextureSRV = 2;   // t0 - diffuse texture
+    }
 }
 

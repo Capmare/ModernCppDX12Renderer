@@ -99,4 +99,15 @@ namespace HOX {
             WaitForSingleObject(FenceEvent, INFINITE);
         }
     }
+
+    void CommandSystem::ExecuteAndFlush(ID3D12GraphicsCommandList* CommandList,
+                                        ID3D12CommandAllocator* Allocator,
+                                        ID3D12Fence* Fence, u64& FenceValue, HANDLE FenceEvent) {
+        CommandList->Close();
+        ID3D12CommandList* Lists[] = {CommandList};
+        GetDeviceContext().m_CommandQueue->ExecuteCommandLists(1, Lists);
+        FlushCommands(Fence, FenceValue, FenceEvent);
+        Allocator->Reset();
+        CommandList->Reset(Allocator, nullptr);
+    }
 } // HOX

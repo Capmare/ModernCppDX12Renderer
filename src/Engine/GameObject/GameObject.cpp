@@ -60,7 +60,7 @@ namespace HOX {
         if (!m_Model || !m_ConstantBufferAllocation.Resource) return;
 
         CommandList->SetGraphicsRootConstantBufferView(
-            1,
+            RootParams::ObjectCBV,
             m_ConstantBufferAllocation.Resource->GetGPUVirtualAddress());
 
         m_Model->Draw(CommandList, SRVHeap, DefaultTextureIndex);

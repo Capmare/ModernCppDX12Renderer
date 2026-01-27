@@ -34,6 +34,8 @@ export namespace HOX {
 
         void Release();
 
+        void CreateSRV(class DescriptorHeap* SRVHeap, DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM);
+
         [[nodiscard]] ID3D12Resource* GetResource() const { return m_TextureResource.Get(); }
         [[nodiscard]] u32 GetWidth() const { return m_Width; }
         [[nodiscard]] u32 GetHeight() const { return m_Height; }

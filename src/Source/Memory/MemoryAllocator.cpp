@@ -74,7 +74,7 @@ namespace HOX {
             Logger::LogMessage(Severity::Error, "Failed to create resource");
         }
         else {
-            Allocation.Resource.Attach(Resource.Get());
+            Allocation.Resource.Attach(Resource.Detach());
         }
 
         return Allocation;
@@ -82,12 +82,13 @@ namespace HOX {
     }
 
     void MemoryAllocator::FreeAllocation(BufferAllocation &Allocation) {
+        // Detach without releasing - D3D12MA owns the resource
+        // and will release it when we release the allocation
+        Allocation.Resource.Detach();
 
         if (Allocation.Allocation) {
             Allocation.Allocation->Release();
             Allocation.Allocation = nullptr;
         }
-        Allocation.Resource.Reset();
-
     }
 }
