@@ -28,8 +28,14 @@ export namespace HOX {
         void AddMesh(std::unique_ptr<Mesh> Mesh);
         void AddTexture(std::unique_ptr<Texture> Texture);
 
+        struct DefaultTextureIndices {
+            u32 Albedo;
+            u32 NormalMap;
+            u32 MetallicRoughness;
+        };
 
-        void Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultTextureIndex) const;
+        void Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, const DefaultTextureIndices& DefaultTextures) const;
+        void DrawDepthOnly(ID3D12GraphicsCommandList *CommandList) const;
 
         void Release();
 

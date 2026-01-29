@@ -22,8 +22,16 @@ export namespace HOX {
     struct MeshVertex {
         DirectX::XMFLOAT3 Position;
         DirectX::XMFLOAT3 Normal;
+        DirectX::XMFLOAT3 Tangent;
         DirectX::XMFLOAT2 TexCoord;
         DirectX::XMFLOAT4 Color;
+    };
+
+    // Material texture indices for PBR
+    struct MeshMaterial {
+        i32 DiffuseIndex{-1};      // Albedo/base color texture
+        i32 NormalIndex{-1};       // Normal map
+        i32 MetallicRoughnessIndex{-1}; // Metallic (B) + Roughness (G) packed
     };
 
     class Mesh {
@@ -47,8 +55,11 @@ export namespace HOX {
         [[nodiscard]] u32 GetIndexCount() const { return m_IndexCount; };
         [[nodiscard]] u32 GetVertexCount() const { return m_VertexCount; };
 
-        void SetTexture(i32 Index) {m_TextureIndex = Index; };
-        [[nodiscard]] i32 GetTextureIndex() const { return m_TextureIndex; };
+        void SetTexture(i32 Index) {m_Material.DiffuseIndex = Index; };
+        [[nodiscard]] i32 GetTextureIndex() const { return m_Material.DiffuseIndex; };
+
+        void SetMaterial(const MeshMaterial& Material) { m_Material = Material; }
+        [[nodiscard]] const MeshMaterial& GetMaterial() const { return m_Material; }
 
     private:
         BufferAllocation m_VertexBuffer{};
@@ -60,7 +71,7 @@ export namespace HOX {
         u32 m_VertexCount{0};
         u32 m_IndexCount{0};
 
-        i32 m_TextureIndex{-1}; // no texture
+        MeshMaterial m_Material{};
 
         bool m_bReleased{false};
 

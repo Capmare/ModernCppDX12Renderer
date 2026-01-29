@@ -45,7 +45,9 @@ export namespace HOX {
 
         void UpdateConstantBuffer() const;
 
-        void Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultTextureIndex);
+        void Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, const Model::DefaultTextureIndices& DefaultTextures);
+
+        void DrawDepthOnly(ID3D12GraphicsCommandList *CommandList);
 
         void Release();
 

@@ -11,6 +11,7 @@ import std;
 import HOX.GameObject;
 import HOX.DescriptorHeap;
 import HOX.Types;
+import HOX.Model;
 
 export namespace HOX {
     class Scene {
@@ -35,9 +36,15 @@ export namespace HOX {
             }
         }
 
-        void Render(ID3D12GraphicsCommandList* CommandList, DescriptorHeap* SRVHeap, u32 DefaultTextureIndex) {
+        void Render(ID3D12GraphicsCommandList* CommandList, DescriptorHeap* SRVHeap, const Model::DefaultTextureIndices& DefaultTextures) {
             for (auto& GameObject : m_GameObjects) {
-                GameObject->Draw(CommandList,SRVHeap, DefaultTextureIndex);
+                GameObject->Draw(CommandList, SRVHeap, DefaultTextures);
+            }
+        }
+
+        void DrawDepthOnly(ID3D12GraphicsCommandList* CommandList) {
+            for (auto& GameObject : m_GameObjects) {
+                GameObject->DrawDepthOnly(CommandList);
             }
         }
 

@@ -12,6 +12,8 @@ export namespace HOX {
 
     struct CameraConstants {
         DirectX::XMFLOAT4X4 m_ViewProjection;
+        DirectX::XMFLOAT3 m_CameraPosition;
+        float Padding;
     };
 
     constexpr size_t CalcConstantBufferSize(size_t Size) {

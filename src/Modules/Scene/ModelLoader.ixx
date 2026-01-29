@@ -44,10 +44,16 @@ export namespace HOX {
             DescriptorHeap *SRVHeap, std::unordered_map<std::string, i32> &textureCache);
 
     private:
-        static void ProcessNode(const aiNode *Node, const aiScene *Scene, Model &OutModel, const std::string &Directory,
-                                ID3D12GraphicsCommandList *CommandList, DescriptorHeap *SRVHeap, std::unordered_map<std::string, i32> &textureCache, std
-                                ::vector<i32> &materialDiffuseCache);
+        struct MaterialTextureIndices {
+            i32 Diffuse{-1};
+            i32 Normal{-1};
+            i32 MetallicRoughness{-1};
+        };
 
-        static std::unique_ptr<Mesh> ProcessMesh(const aiMesh *AiMesh, const aiScene &Scene, i32 TextureIndex);
+        static void ProcessNode(const aiNode *Node, const aiScene *Scene, Model &OutModel, const std::string &Directory,
+                                ID3D12GraphicsCommandList *CommandList, DescriptorHeap *SRVHeap, std::unordered_map<std::string, i32> &textureCache,
+                                std::vector<MaterialTextureIndices> &materialCache);
+
+        static std::unique_ptr<Mesh> ProcessMesh(const aiMesh *AiMesh, const aiScene &Scene, const MaterialTextureIndices& Material);
     };
 }

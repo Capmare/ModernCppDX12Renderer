@@ -11,6 +11,7 @@ import std;
 import HOX.Types;
 import HOX.Win32;
 import HOX.MemoryAllocator;
+import HOX.DescriptorHeap;
 
 export namespace HOX {
 
@@ -34,7 +35,7 @@ export namespace HOX {
 
         void Release();
 
-        void CreateSRV(class DescriptorHeap* SRVHeap, DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM);
+        void CreateSRV(DescriptorHeap* SRVHeap, DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM);
 
         [[nodiscard]] ID3D12Resource* GetResource() const { return m_TextureResource.Get(); }
         [[nodiscard]] u32 GetWidth() const { return m_Width; }

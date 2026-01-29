@@ -7,6 +7,7 @@ module;
 
 export module HOX.LightManager;
 
+import std;
 import HOX.Types;
 import HOX.LightTypes;
 import HOX.Win32;
@@ -25,7 +26,7 @@ export namespace HOX {
         LightManager(LightManager&&) noexcept = default;
         LightManager& operator=(LightManager&&) noexcept = default;
 
-        void Initialize(const DescriptorHeap* SRVHeap, u32 InitialCapacity = 1024); // Create Light Buffer
+        void Initialize(DescriptorHeap* SRVHeap, u32 InitialCapacity = 1024); // Create Light Buffer
         void Shutdown();
         u32 AddLight(const GPULight& Light);
         void RemoveLight(u32 Index);

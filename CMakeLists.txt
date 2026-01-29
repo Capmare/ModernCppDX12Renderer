@@ -85,7 +85,6 @@ target_sources(ModernCppDX12Renderer PRIVATE
         ${SRC_MODULES}
 )
 
-
 set(SHADER_SRC_DIR "${CMAKE_SOURCE_DIR}/src/Shaders")
 file(GLOB_RECURSE SHADER_FILES CONFIGURE_DEPENDS
         "${SHADER_SRC_DIR}/*.hlsl"
@@ -95,13 +94,23 @@ file(GLOB_RECURSE SHADER_FILES CONFIGURE_DEPENDS
 target_sources(ModernCppDX12Renderer PRIVATE ${SHADER_FILES})
 source_group(TREE "${SHADER_SRC_DIR}" PREFIX "Shaders" FILES ${SHADER_FILES})
 
-add_custom_command(TARGET ModernCppDX12Renderer POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:ModernCppDX12Renderer>/Shaders"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:ModernCppDX12Renderer>/Shaders"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${SHADER_SRC_DIR}"
-        "$<TARGET_FILE_DIR:ModernCppDX12Renderer>/Shaders"
+set(SHADER_DST_DIR "$<TARGET_FILE_DIR:ModernCppDX12Renderer>/Shaders")
+set(SHADER_COPY_STAMP "${CMAKE_CURRENT_BINARY_DIR}/copy_shaders.stamp")
+
+add_custom_command(
+        OUTPUT "${SHADER_COPY_STAMP}"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "${SHADER_DST_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${SHADER_DST_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${SHADER_SRC_DIR}" "${SHADER_DST_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E touch "${SHADER_COPY_STAMP}"
+        DEPENDS ${SHADER_FILES}
+        COMMENT "Copying shaders to output folder"
+        VERBATIM
 )
+
+add_custom_target(copy_shaders DEPENDS "${SHADER_COPY_STAMP}")
+add_dependencies(ModernCppDX12Renderer copy_shaders)
+
 
 target_link_libraries(ModernCppDX12Renderer PRIVATE
         d3d12 dxgi d3dcompiler dxguid dbghelp assimp

@@ -56,14 +56,23 @@ namespace HOX {
 
     }
 
-    void GameObject::Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultTextureIndex) {
+    void GameObject::Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, const Model::DefaultTextureIndices& DefaultTextures) {
         if (!m_Model || !m_ConstantBufferAllocation.Resource) return;
 
         CommandList->SetGraphicsRootConstantBufferView(
             RootParams::ObjectCBV,
             m_ConstantBufferAllocation.Resource->GetGPUVirtualAddress());
 
-        m_Model->Draw(CommandList, SRVHeap, DefaultTextureIndex);
+        m_Model->Draw(CommandList, SRVHeap, DefaultTextures);
+    }
+
+    void GameObject::DrawDepthOnly(ID3D12GraphicsCommandList *CommandList) {
+        if (!m_Model || !m_ConstantBufferAllocation.Resource) return;
+        CommandList->SetGraphicsRootConstantBufferView(
+            RootParams::ObjectCBV,
+            m_ConstantBufferAllocation.Resource->GetGPUVirtualAddress());
+
+        m_Model->DrawDepthOnly(CommandList);
     }
 
     void GameObject::Release() {

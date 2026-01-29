@@ -46,12 +46,17 @@ namespace HOX {
         OutModel->SetName(FileName);
 
         std::unordered_map<std::string, i32> textureCache; // key -> textureIndexInModel
-        constexpr i32 kUnresolved = -2;
-        std::vector<i32> materialDiffuseCache(Scene->mNumMaterials, kUnresolved);
-        // matIndex -> textureIndexInModel (or -1)
+
+        // Material cache: stores all texture indices per material
+        std::vector<MaterialTextureIndices> materialCache(Scene->mNumMaterials);
+        for (auto& mat : materialCache) {
+            mat.Diffuse = -2; // -2 means unresolved
+            mat.Normal = -2;
+            mat.MetallicRoughness = -2;
+        }
 
         ProcessNode(Scene->mRootNode, Scene, *OutModel, Directory, CommandList, SRVHeap,
-                    textureCache, materialDiffuseCache);
+                    textureCache, materialCache);
 
         Logger::LogMessage(Severity::Info,
                            std::format("Loaded model '{}' with {} meshes, {} textures",
@@ -150,37 +155,72 @@ namespace HOX {
         ID3D12GraphicsCommandList *CommandList,
         DescriptorHeap *SRVHeap,
         std::unordered_map<std::string, i32> &textureCache,
-        std::vector<i32> &materialDiffuseCache) {
+        std::vector<MaterialTextureIndices> &materialCache) {
         constexpr i32 kUnresolved = -2;
 
         for (unsigned i = 0; i < Node->mNumMeshes; ++i) {
             const aiMesh *AiMesh = Scene->mMeshes[Node->mMeshes[i]];
 
-            i32 textureIndex = -1;
+            MaterialTextureIndices matIndices{};
 
             if (AiMesh->mMaterialIndex < Scene->mNumMaterials) {
-                i32 &cached = materialDiffuseCache[AiMesh->mMaterialIndex];
-                if (cached == kUnresolved) {
-                    const aiMaterial *mat = Scene->mMaterials[AiMesh->mMaterialIndex];
-                    cached = LoadMaterialTexture(mat, aiTextureType_DIFFUSE, Scene,
+                MaterialTextureIndices &cached = materialCache[AiMesh->mMaterialIndex];
+                const aiMaterial *mat = Scene->mMaterials[AiMesh->mMaterialIndex];
+
+                // Load diffuse/albedo
+                if (cached.Diffuse == kUnresolved) {
+                    cached.Diffuse = LoadMaterialTexture(mat, aiTextureType_DIFFUSE, Scene,
                                                  Directory, OutModel, CommandList, SRVHeap,
                                                  textureCache);
+                    // Also try base color for PBR models
+                    if (cached.Diffuse == -1) {
+                        cached.Diffuse = LoadMaterialTexture(mat, aiTextureType_BASE_COLOR, Scene,
+                                                     Directory, OutModel, CommandList, SRVHeap,
+                                                     textureCache);
+                    }
                 }
-                textureIndex = cached; // -1 if none/failed
+
+                // Load normal map
+                if (cached.Normal == kUnresolved) {
+                    cached.Normal = LoadMaterialTexture(mat, aiTextureType_NORMALS, Scene,
+                                                 Directory, OutModel, CommandList, SRVHeap,
+                                                 textureCache);
+                    // Also try height map which some models use for normals
+                    if (cached.Normal == -1) {
+                        cached.Normal = LoadMaterialTexture(mat, aiTextureType_HEIGHT, Scene,
+                                                     Directory, OutModel, CommandList, SRVHeap,
+                                                     textureCache);
+                    }
+                }
+
+                // Load metallic-roughness (glTF style, packed in one texture)
+                if (cached.MetallicRoughness == kUnresolved) {
+                    cached.MetallicRoughness = LoadMaterialTexture(mat, aiTextureType_UNKNOWN, Scene,
+                                                 Directory, OutModel, CommandList, SRVHeap,
+                                                 textureCache);
+                    // Try metalness separately
+                    if (cached.MetallicRoughness == -1) {
+                        cached.MetallicRoughness = LoadMaterialTexture(mat, aiTextureType_METALNESS, Scene,
+                                                         Directory, OutModel, CommandList, SRVHeap,
+                                                         textureCache);
+                    }
+                }
+
+                matIndices = cached;
             }
 
-            auto mesh = ProcessMesh(AiMesh, *Scene, textureIndex);
+            auto mesh = ProcessMesh(AiMesh, *Scene, matIndices);
             if (mesh) OutModel.AddMesh(std::move(mesh));
         }
 
         for (unsigned i = 0; i < Node->mNumChildren; ++i) {
             ProcessNode(Node->mChildren[i], Scene, OutModel, Directory, CommandList, SRVHeap,
-                        textureCache, materialDiffuseCache);
+                        textureCache, materialCache);
         }
     }
 
 
-    std::unique_ptr<Mesh> ModelLoader::ProcessMesh(const aiMesh *AiMesh, const aiScene &Scene, i32 TextureIndex) {
+    std::unique_ptr<Mesh> ModelLoader::ProcessMesh(const aiMesh *AiMesh, const aiScene &Scene, const MaterialTextureIndices& Material) {
         (void) Scene;
 
         const std::size_t vCount = static_cast<std::size_t>(AiMesh->mNumVertices);
@@ -189,6 +229,7 @@ namespace HOX {
         const bool useParallel = (vCount >= 50'000) || (fCount >= 50'000);
 
         const bool hasNormals = AiMesh->HasNormals();
+        const bool hasTangents = AiMesh->HasTangentsAndBitangents();
         const bool hasUV0 = AiMesh->HasTextureCoords(0);
         const bool hasCol0 = AiMesh->HasVertexColors(0);
 
@@ -208,6 +249,13 @@ namespace HOX {
                 v.Normal = {n.x, n.y, n.z};
             } else {
                 v.Normal = {0.0f, 1.0f, 0.0f};
+            }
+
+            if (hasTangents) {
+                const aiVector3D &t = AiMesh->mTangents[i];
+                v.Tangent = {t.x, t.y, t.z};
+            } else {
+                v.Tangent = {1.0f, 0.0f, 0.0f};
             }
 
             if (hasUV0) {
@@ -252,7 +300,14 @@ namespace HOX {
 
         auto outMesh = std::make_unique<Mesh>();
         outMesh->CreateBuffers(vertices, indices);
-        outMesh->SetTexture(TextureIndex);
+
+        // Set material textures
+        MeshMaterial meshMat;
+        meshMat.DiffuseIndex = Material.Diffuse;
+        meshMat.NormalIndex = Material.Normal;
+        meshMat.MetallicRoughnessIndex = Material.MetallicRoughness;
+        outMesh->SetMaterial(meshMat);
+
         return outMesh;
     }
 }

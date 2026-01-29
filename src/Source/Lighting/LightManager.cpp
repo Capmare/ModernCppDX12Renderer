@@ -3,18 +3,20 @@
 //
 
 module;
+#include <cstdint>
 #include <d3d12.h>
 
 
 module HOX.LightManager;
 
+import std;
 import HOX.DescriptorHeap;
 import HOX.Types;
 import HOX.Context;
 import HOX.Logger;
 
 namespace HOX {
-    void LightManager::Initialize(const DescriptorHeap* SRVHeap, u32 InitialCapacity) {
+    void LightManager::Initialize(DescriptorHeap* SRVHeap, u32 InitialCapacity) {
         m_Capacity = InitialCapacity;
         // Allocate light buffer
         m_LightBuffer = GetDeviceContext().m_Allocator->Allocate(sizeof(GPULight) * m_Capacity,

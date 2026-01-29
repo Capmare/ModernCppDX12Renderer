@@ -65,6 +65,10 @@ namespace HOX {
         }
     }
 
+    const DirectX::XMFLOAT3 & Camera::GetPosition() const {
+        return m_Position;
+    }
+
     DirectX::XMMATRIX Camera::GetViewMatrix() {
         if (m_ViewDirty) {
             UpdateViewMatrix();

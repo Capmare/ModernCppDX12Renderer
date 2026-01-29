@@ -22,20 +22,42 @@ namespace HOX {
         }
     }
 
-    void Model::Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultTextureIndex) const {
+    void Model::Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, const DefaultTextureIndices& DefaultTextures) const {
         for (std::size_t i = 0; i < m_Meshes.size(); ++i) {
             auto& Mesh = m_Meshes[i];
-            // Bind the correct texture for this mesh
-            i32 TextureIdx = Mesh->GetTextureIndex();
-            if (TextureIdx >= 0 && TextureIdx < static_cast<i32>(m_Textures.size())) {
-                // Use mesh's texture
-                u32 SrvIndex = m_Textures[TextureIdx]->GetSRVIndex();
+            const auto& Material = Mesh->GetMaterial();
+
+            // Bind albedo texture (t0)
+            if (Material.DiffuseIndex >= 0 && Material.DiffuseIndex < static_cast<i32>(m_Textures.size())) {
+                u32 SrvIndex = m_Textures[Material.DiffuseIndex]->GetSRVIndex();
                 CommandList->SetGraphicsRootDescriptorTable(RootParams::TextureSRV, SRVHeap->GetGPUHandle(SrvIndex));
             } else {
-                // Use default texture
-                CommandList->SetGraphicsRootDescriptorTable(RootParams::TextureSRV, SRVHeap->GetGPUHandle(DefaultTextureIndex));
+                CommandList->SetGraphicsRootDescriptorTable(RootParams::TextureSRV, SRVHeap->GetGPUHandle(DefaultTextures.Albedo));
             }
 
+            // Bind normal map (t1)
+            if (Material.NormalIndex >= 0 && Material.NormalIndex < static_cast<i32>(m_Textures.size())) {
+                u32 SrvIndex = m_Textures[Material.NormalIndex]->GetSRVIndex();
+                CommandList->SetGraphicsRootDescriptorTable(RootParams::NormalMapSRV, SRVHeap->GetGPUHandle(SrvIndex));
+            } else {
+                CommandList->SetGraphicsRootDescriptorTable(RootParams::NormalMapSRV, SRVHeap->GetGPUHandle(DefaultTextures.NormalMap));
+            }
+
+            // Bind metallic-roughness map (t2)
+            if (Material.MetallicRoughnessIndex >= 0 && Material.MetallicRoughnessIndex < static_cast<i32>(m_Textures.size())) {
+                u32 SrvIndex = m_Textures[Material.MetallicRoughnessIndex]->GetSRVIndex();
+                CommandList->SetGraphicsRootDescriptorTable(RootParams::MetallicRoughnessSRV, SRVHeap->GetGPUHandle(SrvIndex));
+            } else {
+                CommandList->SetGraphicsRootDescriptorTable(RootParams::MetallicRoughnessSRV, SRVHeap->GetGPUHandle(DefaultTextures.MetallicRoughness));
+            }
+
+            Mesh->Bind(CommandList);
+            Mesh->Draw(CommandList);
+        }
+    }
+
+    void Model::DrawDepthOnly(ID3D12GraphicsCommandList *CommandList) const {
+        for (auto& Mesh : m_Meshes) {
             Mesh->Bind(CommandList);
             Mesh->Draw(CommandList);
         }

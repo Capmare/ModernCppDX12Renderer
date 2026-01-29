@@ -24,6 +24,8 @@ import HOX.Mesh;
 import HOX.Model;
 import HOX.Texture;
 import HOX.DescriptorHeap;
+import HOX.LightManager;
+import HOX.TileCullingBuffers;
 
 export namespace HOX {
 
@@ -69,17 +71,40 @@ export namespace HOX {
 
         std::unique_ptr<Swapchain> m_SwapChain{};
 
-        ComPtr<ID3DBlob> ErrorBlob;
-        ComPtr<ID3DBlob> VertexShaderBlob;
-        ComPtr<ID3DBlob> PixelShaderBlob;
+        ComPtr<ID3DBlob> m_ErrorBlob;
+        ComPtr<ID3DBlob> m_VertexShaderBlob;
+        ComPtr<ID3DBlob> m_PixelShaderBlob;
+        ComPtr<ID3DBlob> m_DepthVertexShaderShaderBlob;
 
 
+        // Passes START
+
+        // Depth pass
+        ComPtr<ID3D12PipelineState> m_DepthPSO{};
+
+
+        // Passes END
+
+        // Scene
         std::unique_ptr<HOX::Scene> m_Scene{};
-
         std::unique_ptr<HOX::GameObject> m_GO{};
         std::unique_ptr<HOX::ModelLoader> m_ModelLoader{};
 
 
+        // compute pipeline for light cuyllijng
+        ComPtr<ID3D12RootSignature> m_ComputeRootSignature{};
+        ComPtr<ID3D12PipelineState> m_LightCullingPipelineState{};
+        ComPtr<ID3DBlob> m_LightCullingCSBlob{};
+
+        // Culling constants
+        ComPtr<ID3D12Resource> m_CullingConstantsBuffer{};
+        void* m_CullingConstantsMapped{};
+
+        // Depth buffer SRV (needed for compute to read)
+        u32 m_DepthBufferSRVIndex{};
+
+        std::unique_ptr<LightManager> m_LightManager{};
+        std::unique_ptr<TileCullingBuffers> m_TileCullingBuffers{};
 
 
         // root signature
@@ -105,7 +130,9 @@ export namespace HOX {
 
         // SRV heap for textures
         std::unique_ptr<DescriptorHeap> m_SRVHeap{};
-        std::unique_ptr<Texture> m_DefaultTexture{};
+        std::unique_ptr<Texture> m_DefaultTexture{};      // Default magenta texture for missing albedo
+        std::unique_ptr<Texture> m_DefaultNormalMap{};    // Default flat normal map (128, 128, 255)
+        std::unique_ptr<Texture> m_DefaultMetallicRoughness{}; // Default non-metallic, medium roughness
 
 
         bool m_bTearingSupported{false};
