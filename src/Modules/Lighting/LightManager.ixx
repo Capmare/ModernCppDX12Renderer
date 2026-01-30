@@ -38,6 +38,9 @@ export namespace HOX {
         u32 GetSRVIndex() const;
         D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress() const;
 
+        // Returns the first directional light, or nullptr if none exists
+        const GPULight* GetDirectionalLight() const;
+
         void MarkDirty();
 
     private:

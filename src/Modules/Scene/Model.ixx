@@ -35,7 +35,9 @@ export namespace HOX {
         };
 
         void Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, const DefaultTextureIndices& DefaultTextures) const;
-        void DrawDepthOnly(ID3D12GraphicsCommandList *CommandList) const;
+        void DrawDepthOnly(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultAlbedoIndex) const;
+        // Draw for shadow map with alpha testing (binds albedo texture to root param 2)
+        void DrawShadow(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultAlbedoIndex) const;
 
         void Release();
 

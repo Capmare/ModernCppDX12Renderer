@@ -42,9 +42,16 @@ export namespace HOX {
             }
         }
 
-        void DrawDepthOnly(ID3D12GraphicsCommandList* CommandList) {
+        void DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, DescriptorHeap* SRVHeap, u32 DefaultAlbedoIndex) {
             for (auto& GameObject : m_GameObjects) {
-                GameObject->DrawDepthOnly(CommandList);
+                GameObject->DrawDepthOnly(CommandList, SRVHeap, DefaultAlbedoIndex);
+            }
+        }
+
+        // Draw for shadow map generation with alpha testing
+        void DrawShadow(ID3D12GraphicsCommandList* CommandList, DescriptorHeap* SRVHeap, u32 DefaultAlbedoIndex) {
+            for (auto& GameObject : m_GameObjects) {
+                GameObject->DrawShadow(CommandList, SRVHeap, DefaultAlbedoIndex);
             }
         }
 

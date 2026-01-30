@@ -56,8 +56,37 @@ namespace HOX {
         }
     }
 
-    void Model::DrawDepthOnly(ID3D12GraphicsCommandList *CommandList) const {
-        for (auto& Mesh : m_Meshes) {
+    void Model::DrawDepthOnly(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultAlbedoIndex) const {
+        for (std::size_t i = 0; i < m_Meshes.size(); ++i) {
+            auto& Mesh = m_Meshes[i];
+            const auto& Material = Mesh->GetMaterial();
+
+            // Bind albedo texture for alpha testing (uses main root signature TextureSRV slot)
+            if (Material.DiffuseIndex >= 0 && Material.DiffuseIndex < static_cast<i32>(m_Textures.size())) {
+                u32 SrvIndex = m_Textures[Material.DiffuseIndex]->GetSRVIndex();
+                CommandList->SetGraphicsRootDescriptorTable(RootParams::TextureSRV, SRVHeap->GetGPUHandle(SrvIndex));
+            } else {
+                CommandList->SetGraphicsRootDescriptorTable(RootParams::TextureSRV, SRVHeap->GetGPUHandle(DefaultAlbedoIndex));
+            }
+
+            Mesh->Bind(CommandList);
+            Mesh->Draw(CommandList);
+        }
+    }
+
+    void Model::DrawShadow(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultAlbedoIndex) const {
+        for (std::size_t i = 0; i < m_Meshes.size(); ++i) {
+            auto& Mesh = m_Meshes[i];
+            const auto& Material = Mesh->GetMaterial();
+
+            // Bind albedo texture for alpha testing (root param 2 in shadow root signature)
+            if (Material.DiffuseIndex >= 0 && Material.DiffuseIndex < static_cast<i32>(m_Textures.size())) {
+                u32 SrvIndex = m_Textures[Material.DiffuseIndex]->GetSRVIndex();
+                CommandList->SetGraphicsRootDescriptorTable(2, SRVHeap->GetGPUHandle(SrvIndex));
+            } else {
+                CommandList->SetGraphicsRootDescriptorTable(2, SRVHeap->GetGPUHandle(DefaultAlbedoIndex));
+            }
+
             Mesh->Bind(CommandList);
             Mesh->Draw(CommandList);
         }

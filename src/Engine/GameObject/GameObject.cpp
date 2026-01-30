@@ -66,13 +66,23 @@ namespace HOX {
         m_Model->Draw(CommandList, SRVHeap, DefaultTextures);
     }
 
-    void GameObject::DrawDepthOnly(ID3D12GraphicsCommandList *CommandList) {
+    void GameObject::DrawDepthOnly(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultAlbedoIndex) {
         if (!m_Model || !m_ConstantBufferAllocation.Resource) return;
         CommandList->SetGraphicsRootConstantBufferView(
             RootParams::ObjectCBV,
             m_ConstantBufferAllocation.Resource->GetGPUVirtualAddress());
 
-        m_Model->DrawDepthOnly(CommandList);
+        m_Model->DrawDepthOnly(CommandList, SRVHeap, DefaultAlbedoIndex);
+    }
+
+    void GameObject::DrawShadow(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultAlbedoIndex) {
+        if (!m_Model || !m_ConstantBufferAllocation.Resource) return;
+        // Shadow root signature uses index 1 for object world matrix (b1)
+        CommandList->SetGraphicsRootConstantBufferView(
+            1, // Shadow root signature index for object CBV
+            m_ConstantBufferAllocation.Resource->GetGPUVirtualAddress());
+
+        m_Model->DrawShadow(CommandList, SRVHeap, DefaultAlbedoIndex);
     }
 
     void GameObject::Release() {

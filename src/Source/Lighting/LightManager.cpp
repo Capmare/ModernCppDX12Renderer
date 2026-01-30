@@ -118,6 +118,15 @@ namespace HOX {
 
     }
 
+    const GPULight* LightManager::GetDirectionalLight() const {
+        for (const auto& light : m_Lights) {
+            if (light.m_Type == LightType::Directional) {
+                return &light;
+            }
+        }
+        return nullptr;
+    }
+
     void LightManager::MarkDirty() {
         m_bIsDirty = true;
     }

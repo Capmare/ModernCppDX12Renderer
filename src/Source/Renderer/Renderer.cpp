@@ -28,6 +28,8 @@ import HOX.ModelLoader;
 import HOX.GameObject;
 import HOX.Mesh;
 import HOX.LightTypes;
+import HOX.CascadedShadowMap;
+import HOX.SSAO;
 
 namespace HOX {
     Renderer::Renderer() {
@@ -372,6 +374,19 @@ namespace HOX {
 
         LogD3DCompileFailure("Failed to compile DepthPass vertex shader.");
 
+        // Depth Pass Pixel Shader (for alpha testing)
+        Hr = D3DCompileFromFile(
+            L"Shaders/DepthPS.hlsl",
+            nullptr,
+            nullptr,
+            "main",
+            "ps_5_0",
+            D3DCOMPILE_DEBUG,
+            0,
+            &m_DepthPixelShaderBlob,
+            &m_ErrorBlob);
+
+        LogD3DCompileFailure("Failed to compile DepthPass pixel shader.");
 
         Hr = D3DCompileFromFile(
             L"Shaders/LightCullingCS.hlsl",
@@ -386,6 +401,61 @@ namespace HOX {
 
         LogD3DCompileFailure("Failed to compile LightCulling CS.");
 
+        // Shadow Map Vertex Shader
+        Hr = D3DCompileFromFile(
+            L"Shaders/ShadowMapVS.hlsl",
+            nullptr,
+            nullptr,
+            "main",
+            "vs_5_0",
+            D3DCOMPILE_DEBUG,
+            0,
+            &m_ShadowVSBlob,
+            &m_ErrorBlob);
+
+        LogD3DCompileFailure("Failed to compile ShadowMap VS.");
+
+        // Shadow Map Pixel Shader (for alpha testing)
+        Hr = D3DCompileFromFile(
+            L"Shaders/ShadowMapPS.hlsl",
+            nullptr,
+            nullptr,
+            "main",
+            "ps_5_0",
+            D3DCOMPILE_DEBUG,
+            0,
+            &m_ShadowPSBlob,
+            &m_ErrorBlob);
+
+        LogD3DCompileFailure("Failed to compile ShadowMap PS.");
+
+        // SSAO Compute Shader
+        Hr = D3DCompileFromFile(
+            L"Shaders/SSAOCS.hlsl",
+            nullptr,
+            nullptr,
+            "main",
+            "cs_5_0",
+            D3DCOMPILE_DEBUG,
+            0,
+            &m_SSAOCSBlob,
+            &m_ErrorBlob);
+
+        LogD3DCompileFailure("Failed to compile SSAO CS.");
+
+        // SSAO Blur Compute Shader
+        Hr = D3DCompileFromFile(
+            L"Shaders/SSAOBlurCS.hlsl",
+            nullptr,
+            nullptr,
+            "main",
+            "cs_5_0",
+            D3DCOMPILE_DEBUG,
+            0,
+            &m_SSAOBlurCSBlob,
+            &m_ErrorBlob);
+
+        LogD3DCompileFailure("Failed to compile SSAO Blur CS.");
 
         // CAMERA
         {
@@ -459,7 +529,21 @@ namespace HOX {
             LightIndexListSRVRange.BaseShaderRegister = 5; // t5 - light index list
             LightIndexListSRVRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-            D3D12_ROOT_PARAMETER RootParameter[9] = {};
+            // NEW: Shadow map SRV range (Texture2DArray with 4 cascades)
+            D3D12_DESCRIPTOR_RANGE ShadowMapSRVRange = {};
+            ShadowMapSRVRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            ShadowMapSRVRange.NumDescriptors = 1;
+            ShadowMapSRVRange.BaseShaderRegister = 6; // t6 - shadow map array
+            ShadowMapSRVRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+            // NEW: SSAO SRV range
+            D3D12_DESCRIPTOR_RANGE SSAOSRVRange = {};
+            SSAOSRVRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            SSAOSRVRange.NumDescriptors = 1;
+            SSAOSRVRange.BaseShaderRegister = 7; // t7 - SSAO texture
+            SSAOSRVRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+            D3D12_ROOT_PARAMETER RootParameter[13] = {};
 
             // 0: Camera CBV (b0) - vertex + pixel
             RootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -516,27 +600,68 @@ namespace HOX {
             RootParameter[8].Constants.Num32BitValues = 4; // ScreenWidth, ScreenHeight, TileCountX, TileCountY
             RootParameter[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-            // Static sampler for texture filtering
-            D3D12_STATIC_SAMPLER_DESC StaticSampler{};
-            StaticSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-            StaticSampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-            StaticSampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-            StaticSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-            StaticSampler.MipLODBias = 0.0f;
-            StaticSampler.MaxAnisotropy = 1;
-            StaticSampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-            StaticSampler.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
-            StaticSampler.MinLOD = 0.0f;
-            StaticSampler.MaxLOD = D3D12_FLOAT32_MAX;
-            StaticSampler.ShaderRegister = 0; // s0
-            StaticSampler.RegisterSpace = 0;
-            StaticSampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+            // 9: Shadow Map SRV table (t6) - pixel only
+            RootParameter[9].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            RootParameter[9].DescriptorTable.NumDescriptorRanges = 1;
+            RootParameter[9].DescriptorTable.pDescriptorRanges = &ShadowMapSRVRange;
+            RootParameter[9].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+            // 10: SSAO SRV table (t7) - pixel only
+            RootParameter[10].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            RootParameter[10].DescriptorTable.NumDescriptorRanges = 1;
+            RootParameter[10].DescriptorTable.pDescriptorRanges = &SSAOSRVRange;
+            RootParameter[10].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+            // 11: Shadow CBV (b3) - pixel only
+            RootParameter[11].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+            RootParameter[11].Descriptor.ShaderRegister = 3;
+            RootParameter[11].Descriptor.RegisterSpace = 0;
+            RootParameter[11].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+            // 12: Tone Mapping Constants (b4) - pixel only
+            RootParameter[12].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+            RootParameter[12].Descriptor.ShaderRegister = 4;
+            RootParameter[12].Descriptor.RegisterSpace = 0;
+            RootParameter[12].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+            // Static samplers
+            D3D12_STATIC_SAMPLER_DESC StaticSamplers[2] = {};
+
+            // s0: Standard texture sampler
+            StaticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+            StaticSamplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            StaticSamplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            StaticSamplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            StaticSamplers[0].MipLODBias = 0.0f;
+            StaticSamplers[0].MaxAnisotropy = 1;
+            StaticSamplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+            StaticSamplers[0].BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
+            StaticSamplers[0].MinLOD = 0.0f;
+            StaticSamplers[0].MaxLOD = D3D12_FLOAT32_MAX;
+            StaticSamplers[0].ShaderRegister = 0; // s0
+            StaticSamplers[0].RegisterSpace = 0;
+            StaticSamplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+            // s1: Shadow comparison sampler (PCF)
+            StaticSamplers[1].Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+            StaticSamplers[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+            StaticSamplers[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+            StaticSamplers[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+            StaticSamplers[1].MipLODBias = 0.0f;
+            StaticSamplers[1].MaxAnisotropy = 1;
+            StaticSamplers[1].ComparisonFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+            StaticSamplers[1].BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+            StaticSamplers[1].MinLOD = 0.0f;
+            StaticSamplers[1].MaxLOD = D3D12_FLOAT32_MAX;
+            StaticSamplers[1].ShaderRegister = 1; // s1
+            StaticSamplers[1].RegisterSpace = 0;
+            StaticSamplers[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
             D3D12_ROOT_SIGNATURE_DESC RootSignatureDesc = {};
-            RootSignatureDesc.NumParameters = 9;
+            RootSignatureDesc.NumParameters = 13;
             RootSignatureDesc.pParameters = RootParameter;
-            RootSignatureDesc.NumStaticSamplers = 1;
-            RootSignatureDesc.pStaticSamplers = &StaticSampler;
+            RootSignatureDesc.NumStaticSamplers = 2;
+            RootSignatureDesc.pStaticSamplers = StaticSamplers;
             RootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
             Hr = D3D12SerializeRootSignature(
@@ -668,6 +793,224 @@ namespace HOX {
             LogD3DCompileFailure("Failed to create light culling compute PSO.");
         }
 
+        // Shadow Map Root Signature (with texture for alpha testing)
+        {
+            // Descriptor range for albedo texture (t0)
+            D3D12_DESCRIPTOR_RANGE AlbedoSRVRange = {};
+            AlbedoSRVRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            AlbedoSRVRange.NumDescriptors = 1;
+            AlbedoSRVRange.BaseShaderRegister = 0; // t0
+            AlbedoSRVRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+            D3D12_ROOT_PARAMETER ShadowRootParams[3] = {};
+
+            // 0: Root constants for light view-projection (b0) - 16 floats = 64 bytes
+            ShadowRootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+            ShadowRootParams[0].Constants.ShaderRegister = 0;
+            ShadowRootParams[0].Constants.RegisterSpace = 0;
+            ShadowRootParams[0].Constants.Num32BitValues = 16; // 4x4 matrix
+            ShadowRootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+
+            // 1: CBV for object world matrix (b1)
+            ShadowRootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+            ShadowRootParams[1].Descriptor.ShaderRegister = 1;
+            ShadowRootParams[1].Descriptor.RegisterSpace = 0;
+            ShadowRootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+
+            // 2: Descriptor table for albedo texture (t0) - for alpha testing
+            ShadowRootParams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            ShadowRootParams[2].DescriptorTable.NumDescriptorRanges = 1;
+            ShadowRootParams[2].DescriptorTable.pDescriptorRanges = &AlbedoSRVRange;
+            ShadowRootParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+            // Static sampler for texture sampling
+            D3D12_STATIC_SAMPLER_DESC ShadowSampler = {};
+            ShadowSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+            ShadowSampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            ShadowSampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            ShadowSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            ShadowSampler.ShaderRegister = 0; // s0
+            ShadowSampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+            D3D12_ROOT_SIGNATURE_DESC ShadowRootSigDesc = {};
+            ShadowRootSigDesc.NumParameters = 3;
+            ShadowRootSigDesc.pParameters = ShadowRootParams;
+            ShadowRootSigDesc.NumStaticSamplers = 1;
+            ShadowRootSigDesc.pStaticSamplers = &ShadowSampler;
+            ShadowRootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+            ComPtr<ID3DBlob> ShadowSigBlob;
+            Hr = D3D12SerializeRootSignature(&ShadowRootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
+                &ShadowSigBlob, &m_ErrorBlob);
+            LogD3DCompileFailure("Failed to serialize shadow root signature.");
+
+            Hr = GetDeviceContext().m_Device->CreateRootSignature(
+                0,
+                ShadowSigBlob->GetBufferPointer(),
+                ShadowSigBlob->GetBufferSize(),
+                HOX::Win32::UuidOf<ID3D12RootSignature>(),
+                HOX::Win32::PpvArgs(m_ShadowRootSignature.ReleaseAndGetAddressOf()));
+            LogD3DCompileFailure("Failed to create shadow root signature.");
+        }
+
+        // SSAO Root Signature
+        {
+            D3D12_DESCRIPTOR_RANGE DepthSRVRange = {};
+            DepthSRVRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            DepthSRVRange.NumDescriptors = 1;
+            DepthSRVRange.BaseShaderRegister = 0; // t0
+            DepthSRVRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+            D3D12_DESCRIPTOR_RANGE NoiseSRVRange = {};
+            NoiseSRVRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            NoiseSRVRange.NumDescriptors = 1;
+            NoiseSRVRange.BaseShaderRegister = 1; // t1
+            NoiseSRVRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+            D3D12_DESCRIPTOR_RANGE OutputUAVRange = {};
+            OutputUAVRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+            OutputUAVRange.NumDescriptors = 1;
+            OutputUAVRange.BaseShaderRegister = 0; // u0
+            OutputUAVRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+            D3D12_ROOT_PARAMETER SSAORootParams[4] = {};
+
+            // 0: CBV for SSAO constants (b0)
+            SSAORootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+            SSAORootParams[0].Descriptor.ShaderRegister = 0;
+            SSAORootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+            // 1: Depth SRV (t0)
+            SSAORootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            SSAORootParams[1].DescriptorTable.NumDescriptorRanges = 1;
+            SSAORootParams[1].DescriptorTable.pDescriptorRanges = &DepthSRVRange;
+            SSAORootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+            // 2: Noise SRV (t1)
+            SSAORootParams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            SSAORootParams[2].DescriptorTable.NumDescriptorRanges = 1;
+            SSAORootParams[2].DescriptorTable.pDescriptorRanges = &NoiseSRVRange;
+            SSAORootParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+            // 3: Output UAV (u0)
+            SSAORootParams[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            SSAORootParams[3].DescriptorTable.NumDescriptorRanges = 1;
+            SSAORootParams[3].DescriptorTable.pDescriptorRanges = &OutputUAVRange;
+            SSAORootParams[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+            // Static sampler for noise texture
+            D3D12_STATIC_SAMPLER_DESC NoiseSampler = {};
+            NoiseSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+            NoiseSampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            NoiseSampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            NoiseSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            NoiseSampler.ShaderRegister = 0;
+            NoiseSampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+            D3D12_ROOT_SIGNATURE_DESC SSAORootSigDesc = {};
+            SSAORootSigDesc.NumParameters = 4;
+            SSAORootSigDesc.pParameters = SSAORootParams;
+            SSAORootSigDesc.NumStaticSamplers = 1;
+            SSAORootSigDesc.pStaticSamplers = &NoiseSampler;
+
+            ComPtr<ID3DBlob> SSAOSigBlob;
+            Hr = D3D12SerializeRootSignature(&SSAORootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
+                &SSAOSigBlob, &m_ErrorBlob);
+            LogD3DCompileFailure("Failed to serialize SSAO root signature.");
+
+            Hr = GetDeviceContext().m_Device->CreateRootSignature(
+                0,
+                SSAOSigBlob->GetBufferPointer(),
+                SSAOSigBlob->GetBufferSize(),
+                HOX::Win32::UuidOf<ID3D12RootSignature>(),
+                HOX::Win32::PpvArgs(m_SSAORootSignature.ReleaseAndGetAddressOf()));
+            LogD3DCompileFailure("Failed to create SSAO root signature.");
+        }
+
+        // SSAO Blur Root Signature
+        {
+            D3D12_DESCRIPTOR_RANGE InputSRVRange = {};
+            InputSRVRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            InputSRVRange.NumDescriptors = 1;
+            InputSRVRange.BaseShaderRegister = 0; // t0
+            InputSRVRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+            D3D12_DESCRIPTOR_RANGE OutputUAVRange = {};
+            OutputUAVRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+            OutputUAVRange.NumDescriptors = 1;
+            OutputUAVRange.BaseShaderRegister = 0; // u0
+            OutputUAVRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+            D3D12_ROOT_PARAMETER BlurRootParams[3] = {};
+
+            // 0: Blur constants (root constants)
+            BlurRootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+            BlurRootParams[0].Constants.ShaderRegister = 0;
+            BlurRootParams[0].Constants.Num32BitValues = 4; // width, height, padding x2
+            BlurRootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+            // 1: Input SRV (t0)
+            BlurRootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            BlurRootParams[1].DescriptorTable.NumDescriptorRanges = 1;
+            BlurRootParams[1].DescriptorTable.pDescriptorRanges = &InputSRVRange;
+            BlurRootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+            // 2: Output UAV (u0)
+            BlurRootParams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            BlurRootParams[2].DescriptorTable.NumDescriptorRanges = 1;
+            BlurRootParams[2].DescriptorTable.pDescriptorRanges = &OutputUAVRange;
+            BlurRootParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+            D3D12_ROOT_SIGNATURE_DESC BlurRootSigDesc = {};
+            BlurRootSigDesc.NumParameters = 3;
+            BlurRootSigDesc.pParameters = BlurRootParams;
+
+            ComPtr<ID3DBlob> BlurSigBlob;
+            Hr = D3D12SerializeRootSignature(&BlurRootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
+                &BlurSigBlob, &m_ErrorBlob);
+            LogD3DCompileFailure("Failed to serialize SSAO blur root signature.");
+
+            Hr = GetDeviceContext().m_Device->CreateRootSignature(
+                0,
+                BlurSigBlob->GetBufferPointer(),
+                BlurSigBlob->GetBufferSize(),
+                HOX::Win32::UuidOf<ID3D12RootSignature>(),
+                HOX::Win32::PpvArgs(m_SSAOBlurRootSignature.ReleaseAndGetAddressOf()));
+            LogD3DCompileFailure("Failed to create SSAO blur root signature.");
+        }
+
+        // SSAO Compute PSO
+        {
+            D3D12_COMPUTE_PIPELINE_STATE_DESC SSAOPSODesc = {};
+            SSAOPSODesc.pRootSignature = m_SSAORootSignature.Get();
+            SSAOPSODesc.CS = {
+                m_SSAOCSBlob->GetBufferPointer(),
+                m_SSAOCSBlob->GetBufferSize()
+            };
+
+            Hr = GetDeviceContext().m_Device->CreateComputePipelineState(
+                &SSAOPSODesc,
+                HOX::Win32::UuidOf<ID3D12PipelineState>(),
+                HOX::Win32::PpvArgs(m_SSAOPSO.ReleaseAndGetAddressOf()));
+            LogD3DCompileFailure("Failed to create SSAO compute PSO.");
+        }
+
+        // SSAO Blur Compute PSO
+        {
+            D3D12_COMPUTE_PIPELINE_STATE_DESC BlurPSODesc = {};
+            BlurPSODesc.pRootSignature = m_SSAOBlurRootSignature.Get();
+            BlurPSODesc.CS = {
+                m_SSAOBlurCSBlob->GetBufferPointer(),
+                m_SSAOBlurCSBlob->GetBufferSize()
+            };
+
+            Hr = GetDeviceContext().m_Device->CreateComputePipelineState(
+                &BlurPSODesc,
+                HOX::Win32::UuidOf<ID3D12PipelineState>(),
+                HOX::Win32::PpvArgs(m_SSAOBlurPSO.ReleaseAndGetAddressOf()));
+            LogD3DCompileFailure("Failed to create SSAO blur compute PSO.");
+        }
+
         {
             D3D12_HEAP_PROPERTIES HeapProps = {};
             HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -694,75 +1037,119 @@ namespace HOX {
             m_CullingConstantsBuffer->Map(0, &ReadRange, &m_CullingConstantsMapped);
         }
 
-        m_LightManager = std::make_unique<LightManager>();
-        m_LightManager->Initialize(m_SRVHeap.get());
+        // Tone Mapping Constants Buffer
+        {
+            D3D12_HEAP_PROPERTIES HeapProps = {};
+            HeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
 
-        // Add test lights
+            D3D12_RESOURCE_DESC ResourceDesc = {};
+            ResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+            ResourceDesc.Width = 256; // Minimum CB alignment
+            ResourceDesc.Height = 1;
+            ResourceDesc.DepthOrArraySize = 1;
+            ResourceDesc.MipLevels = 1;
+            ResourceDesc.SampleDesc.Count = 1;
+            ResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+            GetDeviceContext().m_Device->CreateCommittedResource(
+                &HeapProps,
+                D3D12_HEAP_FLAG_NONE,
+                &ResourceDesc,
+                D3D12_RESOURCE_STATE_GENERIC_READ,
+                nullptr,
+                HOX::Win32::UuidOf<ID3D12Resource>(),
+                HOX::Win32::PpvArgs(m_ToneMappingConstantsBuffer.ReleaseAndGetAddressOf()));
+
+            D3D12_RANGE ReadRange = {0, 0};
+            m_ToneMappingConstantsBuffer->Map(0, &ReadRange, &m_ToneMappingConstantsMapped);
+
+            // Initialize with default exposure
+            ToneMappingConstants toneConsts{};
+            toneConsts.Exposure = m_Exposure;
+            memcpy(m_ToneMappingConstantsMapped, &toneConsts, sizeof(ToneMappingConstants));
+        }
+
+        m_LightManager = std::make_unique<LightManager>();
+        m_LightManager->Initialize(m_SRVHeap.get(),10000000);
+
         {
             GPULight Light{};
 
             // Directional light (sun) - illuminates entire scene
             Light.m_Type = LightType::Directional;
-            Light.m_Direction = {-1.f, -1.f, 0.f}; // Angled down
+            DirectionValue += 0.001f;
+            Light.m_Direction = {-1, -.01, -0.f}; // Match Vulkan renderer direction
             Light.m_Color = {1.0f, 0.95f, 0.8f}; // Warm sunlight
             Light.m_Intensity = 1.5f;
-            Light.Range = 0.0f; // Not used for directional
-            m_LightManager->AddLight(Light);
+            Light.Range = 0.0f;
+            DirLightIdx = m_LightManager->AddLight(Light);
 
-            // Point lights - scattered around the scene
             Light.m_Type = LightType::Point;
-            Light.Range = 50.0f;
-            Light.m_Intensity = 2.0f;
+            Light.Range = 40.0f;
+            Light.m_Intensity = 3.0f;
 
-            // Center white light
-            Light.m_Position = {0.0f, 8.0f, 0.0f};
-            Light.m_Color = {1.0f, 1.0f, 1.0f};
-            m_LightManager->AddLight(Light);
+            const int GRID_X = 100;
+            const int GRID_Z = 100;
+            const float SPACING = 20.0f;
+            const float HEIGHT = 4.0f;
 
-            // Red light left side
-            Light.m_Position = {-15.0f, 4.0f, 0.0f};
-            Light.m_Color = {1.0f, 0.3f, 0.3f};
-            m_LightManager->AddLight(Light);
+            int index = 0;
 
-            // Blue light right side
-            Light.m_Position = {15.0f, 4.0f, 0.0f};
-            Light.m_Color = {0.3f, 0.3f, 1.0f};
-            m_LightManager->AddLight(Light);
+            for (int x = 0; x < GRID_X; x++)
+            {
+                for (int z = 0; z < GRID_Z; z++)
+                {
+                    // Position (flat grid)
+                    Light.m_Position = {
+                        (x - GRID_X / 2) * SPACING,
+                        HEIGHT,
+                        (z - GRID_Z / 2) * SPACING
+                    };
 
-            // Green light back
-            Light.m_Position = {0.0f, 4.0f, -15.0f};
-            Light.m_Color = {0.3f, 1.0f, 0.3f};
-            m_LightManager->AddLight(Light);
+                    // Unique color using HSV → RGB
+                    float h = float(index) / float(GRID_X * GRID_Z);
+                    float s = 1.0f;
+                    float v = 1.0f;
 
-            // Yellow light front
-            Light.m_Position = {0.0f, 4.0f, 15.0f};
-            Light.m_Color = {1.0f, 1.0f, 0.3f};
-            m_LightManager->AddLight(Light);
+                    float r, g, b;
+                    float i = floor(h * 6.0f);
+                    float f = h * 6.0f - i;
+                    float p = v * (1.0f - s);
+                    float q = v * (1.0f - f * s);
+                    float t = v * (1.0f - (1.0f - f) * s);
 
-            // Spot lights
-            Light.m_Type = LightType::Spot;
-            Light.Range = 300.0f;
-            Light.m_Intensity = 5.0f;
-            Light.m_SpotInnerAngle = 0.3f; // ~17 degrees
-            Light.m_SpotOuterAngle = 0.5f; // ~29 degrees
+                    switch (int(i) % 6) {
+                        case 0: r = v; g = t; b = p; break;
+                        case 1: r = q; g = v; b = p; break;
+                        case 2: r = p; g = v; b = t; break;
+                        case 3: r = p; g = q; b = v; break;
+                        case 4: r = t; g = p; b = v; break;
+                        case 5: r = v; g = p; b = q; break;
+                    }
 
-            // Spotlight pointing down from above
-            Light.m_Position = {5.0f, 10.0f, 5.0f};
-            Light.m_Direction = {0.0f, -1.0f, 0.0f};
-            Light.m_Color = {1.0f, 0.8f, 0.6f};
-            m_LightManager->AddLight(Light);
+                    Light.m_Color = { r, g, b };
 
-            // Spotlight pointing at an angle
-            Light.m_Position = {-8.0f, 50.0f, -50.0f};
-            Light.m_Direction = {0.5f, -0.5f, 0.5f};
-            Light.m_Color = {0.6f, 0.8f, 1.0f};
-            m_LightManager->AddLight(Light);
+                    m_LightManager->AddLight(Light);
+                    index++;
+                }
+            }
 
             m_LightManager->UpdateGPUBuffer();
         }
 
         m_TileCullingBuffers = std::make_unique<TileCullingBuffers>();
         m_TileCullingBuffers->Initialize(
+            GetDeviceContext().m_WindowWidth,
+            GetDeviceContext().m_WindowHeight,
+            m_SRVHeap.get());
+
+        // Initialize Cascaded Shadow Maps
+        m_CascadedShadowMap = std::make_unique<CascadedShadowMap>();
+        m_CascadedShadowMap->Initialize(m_SRVHeap.get());
+
+        // Initialize SSAO
+        m_SSAO = std::make_unique<SSAO>();
+        m_SSAO->Initialize(
             GetDeviceContext().m_WindowWidth,
             GetDeviceContext().m_WindowHeight,
             m_SRVHeap.get());
@@ -867,6 +1254,7 @@ namespace HOX {
 
         GraphicsPipelineDesc.InputLayout = {InputLayoutDesc, _countof(InputLayoutDesc)};
         GraphicsPipelineDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+        GraphicsPipelineDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
         // Fillmode = Solid not wireframe; CullMode = Back; ClockWise = Front;
 
         GraphicsPipelineDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -914,7 +1302,11 @@ namespace HOX {
                 m_DepthVertexShaderShaderBlob->GetBufferSize(),
             };
 
-            DepthPSODesc.PS = {nullptr,0};
+            // Pixel shader for alpha testing (transparent objects like leaves)
+            DepthPSODesc.PS = {
+                m_DepthPixelShaderBlob->GetBufferPointer(),
+                m_DepthPixelShaderBlob->GetBufferSize()
+            };
 
             DepthPSODesc.NumRenderTargets = 0;
             DepthPSODesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
@@ -925,6 +1317,68 @@ namespace HOX {
                 HOX::Win32::PpvArgs(m_DepthPSO.ReleaseAndGetAddressOf()));
 
             LogD3DCompileFailure("Failed to create depth ");
+        }
+
+        // Shadow Map PSO (depth-only rendering from light's perspective)
+        {
+            D3D12_GRAPHICS_PIPELINE_STATE_DESC ShadowPSODesc = {};
+            ShadowPSODesc.pRootSignature = m_ShadowRootSignature.Get();
+            ShadowPSODesc.VS = {
+                m_ShadowVSBlob->GetBufferPointer(),
+                m_ShadowVSBlob->GetBufferSize()
+            };
+            // Pixel shader for alpha testing (transparent objects like leaves)
+            ShadowPSODesc.PS = {
+                m_ShadowPSBlob->GetBufferPointer(),
+                m_ShadowPSBlob->GetBufferSize()
+            };
+
+            // Use same input layout as main pass
+            D3D12_INPUT_ELEMENT_DESC ShadowInputLayout[] = {
+                {
+                    "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
+                    D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+                },
+                {
+                    "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12,
+                    D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+                },
+                {
+                    "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24,
+                    D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+                },
+                {
+                    "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36,
+                    D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+                },
+                {
+                    "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 44,
+                    D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+                }
+            };
+
+            ShadowPSODesc.InputLayout = {ShadowInputLayout, _countof(ShadowInputLayout)};
+            ShadowPSODesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+            ShadowPSODesc.RasterizerState.DepthBias = 1000;
+            ShadowPSODesc.RasterizerState.DepthBiasClamp = 0.0f;
+            ShadowPSODesc.RasterizerState.SlopeScaledDepthBias = 1.5f;
+            ShadowPSODesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+            ShadowPSODesc.DepthStencilState.DepthEnable = TRUE;
+            ShadowPSODesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+            ShadowPSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+            ShadowPSODesc.DepthStencilState.StencilEnable = FALSE;
+            ShadowPSODesc.SampleMask = UINT_MAX;
+            ShadowPSODesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+            ShadowPSODesc.NumRenderTargets = 0;
+            ShadowPSODesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+            ShadowPSODesc.SampleDesc.Count = 1;
+            ShadowPSODesc.SampleDesc.Quality = 0;
+
+            Hr = GetDeviceContext().m_Device->CreateGraphicsPipelineState(
+                &ShadowPSODesc,
+                HOX::Win32::UuidOf<ID3D12PipelineState>(),
+                HOX::Win32::PpvArgs(m_ShadowPSO.ReleaseAndGetAddressOf()));
+            LogD3DCompileFailure("Failed to create shadow PSO.");
         }
 
         m_Viewport.TopLeftX = 0.0f;
@@ -1027,7 +1481,95 @@ namespace HOX {
             memcpy(m_CameraConstantBufferMapped, &Constants, sizeof(Constants));
         }
 
-        // Depth pass
+        // ===========================================
+        // CSM Shadow Pass - Render scene from light's perspective for each cascade
+        // ===========================================
+        {
+            // Get directional light for shadow casting
+            const GPULight* DirLight = m_LightManager->GetDirectionalLight();
+            if (DirLight && m_CascadedShadowMap && m_Scene) {
+                // Update CSM matrices based on camera frustum
+                DirectX::XMFLOAT3 LightDir = DirLight->m_Direction;
+                m_CascadedShadowMap->Update(
+                    m_Camera->GetViewMatrix(),
+                    m_Camera->GetProjectionMatrix(),
+                    LightDir,
+                    m_Camera->GetNearPlane(),
+                    m_Camera->GetFarPlane()
+                );
+
+                // Store light direction in shadow constants
+                m_CascadedShadowMap->SetLightDirection(LightDir);
+                m_CascadedShadowMap->UpdateConstantBuffer(m_Camera->GetViewMatrix());
+
+                // Set shadow PSO and root signature
+                m_CommandList->SetGraphicsRootSignature(m_ShadowRootSignature.Get());
+                m_CommandList->SetPipelineState(m_ShadowPSO.Get());
+                m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+                // Set descriptor heap for texture access (alpha testing)
+                ID3D12DescriptorHeap* Heaps[] = { m_SRVHeap->GetD3D12DescriptorHeap() };
+                m_CommandList->SetDescriptorHeaps(1, Heaps);
+
+                // Shadow map viewport and scissor
+                D3D12_VIEWPORT ShadowViewport = {};
+                ShadowViewport.Width = static_cast<float>(CSM_SHADOW_MAP_SIZE);
+                ShadowViewport.Height = static_cast<float>(CSM_SHADOW_MAP_SIZE);
+                ShadowViewport.MinDepth = 0.0f;
+                ShadowViewport.MaxDepth = 1.0f;
+
+                D3D12_RECT ShadowScissor = {};
+                ShadowScissor.right = CSM_SHADOW_MAP_SIZE;
+                ShadowScissor.bottom = CSM_SHADOW_MAP_SIZE;
+
+                m_CommandList->RSSetViewports(1, &ShadowViewport);
+                m_CommandList->RSSetScissorRects(1, &ShadowScissor);
+
+                // Render each cascade
+                for (u32 cascade = 0; cascade < CSM_NUM_CASCADES; cascade++) {
+                    // Get DSV for this cascade
+                    D3D12_CPU_DESCRIPTOR_HANDLE CascadeDSV = m_CascadedShadowMap->GetDSVHandle(cascade);
+
+                    // Set render target (no RTV, depth only)
+                    m_CommandList->OMSetRenderTargets(0, nullptr, FALSE, &CascadeDSV);
+                    m_CommandList->ClearDepthStencilView(CascadeDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+                    // Bind light view-projection for this cascade (b0)
+                    // We need a per-cascade constant buffer, using the main CB and updating per cascade
+                    // For simplicity, we'll create a temporary buffer approach
+                    // Actually, let's use the cascade VP directly
+
+                    // Create a small upload buffer for the cascade VP (or reuse mapped buffer)
+                    // For now, let's bind the cascade VP from the shadow constants
+                    // The shadow shader expects b0 = LightViewProjection matrix
+
+                    // We'll use a simple approach: copy the cascade matrix to a temp location
+                    // Since we have the shadow constant buffer, we can offset into it
+
+                    // Better approach: bind the full shadow constants and use cascade index
+                    // But the shader expects just a single matrix at b0
+
+                    // Let's modify to use a per-frame cascade buffer or root constants
+                    // For efficiency, use root constants for the 64-byte matrix
+
+                    const DirectX::XMFLOAT4X4& CascadeVP = m_CascadedShadowMap->GetCascadeViewProjection(cascade);
+                    m_CommandList->SetGraphicsRoot32BitConstants(0, 16, &CascadeVP, 0);
+
+                    // Draw scene for this cascade with alpha testing
+                    m_Scene->DrawShadow(m_CommandList.Get(), m_SRVHeap.get(), m_DefaultTexture->GetSRVIndex());
+                }
+
+                // Transition shadow maps from depth write to pixel shader resource
+                CD3DX12_RESOURCE_BARRIER ShadowBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+                    m_CascadedShadowMap->GetResource(),
+                    D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                    D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+                );
+                m_CommandList->ResourceBarrier(1, &ShadowBarrier);
+            }
+        }
+
+        // Depth pass (with alpha testing for transparent objects)
         {
             D3D12_CPU_DESCRIPTOR_HANDLE DSV = m_DSVHeap->GetCPUDescriptorHandleForHeapStart();
             m_CommandList->OMSetRenderTargets(0, nullptr, FALSE, &DSV);
@@ -1039,20 +1581,125 @@ namespace HOX {
             m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
             m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+            // Set descriptor heap for texture access (alpha testing)
+            ID3D12DescriptorHeap* DepthHeaps[] = { m_SRVHeap->GetD3D12DescriptorHeap() };
+            m_CommandList->SetDescriptorHeaps(1, DepthHeaps);
+
             m_CommandList->SetGraphicsRootConstantBufferView(RootParams::CameraCBV,
                                                              m_CameraConstantbuffer->GetGPUVirtualAddress());
 
             if (m_Scene) {
-                m_Scene->DrawDepthOnly(m_CommandList.Get());
+                m_Scene->DrawDepthOnly(m_CommandList.Get(), m_SRVHeap.get(), m_DefaultTexture->GetSRVIndex());
             }
         }
 
-        // Light Culling Compute Pass
+        // ===========================================
+        // SSAO Compute Pass - Generate ambient occlusion from depth buffer
+        // ===========================================
         {
             // Transition depth buffer from depth write to shader resource
             CD3DX12_RESOURCE_BARRIER DepthBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
                 m_DepthStencilBuffer.Get(),
                 D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+            );
+            m_CommandList->ResourceBarrier(1, &DepthBarrier);
+
+            // Update SSAO constants
+            DirectX::XMMATRIX InvProj = DirectX::XMMatrixInverse(nullptr, m_Camera->GetProjectionMatrix());
+            m_SSAO->UpdateConstants(
+                m_Camera->GetProjectionMatrix(),
+                InvProj,
+                static_cast<u32>(m_Viewport.Width),
+                static_cast<u32>(m_Viewport.Height)
+            );
+
+            // Set descriptor heap
+            ID3D12DescriptorHeap* Heaps[] = { m_SRVHeap->GetD3D12DescriptorHeap() };
+            m_CommandList->SetDescriptorHeaps(1, Heaps);
+
+            // === SSAO Main Pass ===
+            m_CommandList->SetComputeRootSignature(m_SSAORootSignature.Get());
+            m_CommandList->SetPipelineState(m_SSAOPSO.Get());
+
+            // Bind resources
+            // 0: CBV for SSAO constants (b0)
+            m_CommandList->SetComputeRootConstantBufferView(0, m_SSAO->GetConstantBuffer()->GetGPUVirtualAddress());
+            // 1: Depth SRV (t0)
+            m_CommandList->SetComputeRootDescriptorTable(1, m_SRVHeap->GetGPUHandle(m_DepthBufferSRVIndex));
+            // 2: Noise SRV (t1)
+            m_CommandList->SetComputeRootDescriptorTable(2, m_SRVHeap->GetGPUHandle(m_SSAO->GetNoiseSRVIndex()));
+            // 3: Output UAV (u0)
+            m_CommandList->SetComputeRootDescriptorTable(3, m_SRVHeap->GetGPUHandle(m_SSAO->GetSSAOOutputUAVIndex()));
+
+            // Dispatch SSAO compute shader (8x8 thread groups)
+            u32 dispatchX = (static_cast<u32>(m_Viewport.Width) + 7) / 8;
+            u32 dispatchY = (static_cast<u32>(m_Viewport.Height) + 7) / 8;
+            m_CommandList->Dispatch(dispatchX, dispatchY, 1);
+
+            // UAV barrier to ensure SSAO write completes before blur reads
+            D3D12_RESOURCE_BARRIER UAVBarrier = {};
+            UAVBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+            UAVBarrier.UAV.pResource = m_SSAO->GetSSAOOutput();
+            m_CommandList->ResourceBarrier(1, &UAVBarrier);
+
+            // Transition SSAO output from UAV to SRV for blur pass
+            CD3DX12_RESOURCE_BARRIER SSAOBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_SSAO->GetSSAOOutput(),
+                D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+            );
+            m_CommandList->ResourceBarrier(1, &SSAOBarrier);
+
+            // === SSAO Blur Pass ===
+            m_CommandList->SetComputeRootSignature(m_SSAOBlurRootSignature.Get());
+            m_CommandList->SetPipelineState(m_SSAOBlurPSO.Get());
+
+            // Bind blur constants (root constants: width, height, padding x2)
+            u32 blurConstants[4] = {
+                static_cast<u32>(m_Viewport.Width),
+                static_cast<u32>(m_Viewport.Height),
+                0, 0
+            };
+            m_CommandList->SetComputeRoot32BitConstants(0, 4, blurConstants, 0);
+            // 1: Input SRV (t0) - raw SSAO
+            m_CommandList->SetComputeRootDescriptorTable(1, m_SRVHeap->GetGPUHandle(m_SSAO->GetSSAOOutputSRVIndex()));
+            // 2: Output UAV (u0) - blurred SSAO
+            m_CommandList->SetComputeRootDescriptorTable(2, m_SRVHeap->GetGPUHandle(m_SSAO->GetSSAOBlurredUAVIndex()));
+
+            // Dispatch blur
+            m_CommandList->Dispatch(dispatchX, dispatchY, 1);
+
+            // UAV barrier for blur output
+            UAVBarrier.UAV.pResource = m_SSAO->GetSSAOBlurred();
+            m_CommandList->ResourceBarrier(1, &UAVBarrier);
+
+            // Transition blurred SSAO to pixel shader resource for color pass
+            CD3DX12_RESOURCE_BARRIER BlurredBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_SSAO->GetSSAOBlurred(),
+                D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+            );
+            m_CommandList->ResourceBarrier(1, &BlurredBarrier);
+
+            // Transition raw SSAO back to UAV for next frame
+            SSAOBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_SSAO->GetSSAOOutput(),
+                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                D3D12_RESOURCE_STATE_UNORDERED_ACCESS
+            );
+            m_CommandList->ResourceBarrier(1, &SSAOBarrier);
+
+            // Keep depth buffer as SRV for light culling (it will transition back after light culling)
+        }
+
+        // Light Culling Compute Pass
+        {
+            // Depth buffer is already in SRV state from SSAO pass
+            // Transition to include PIXEL_SHADER_RESOURCE for later use
+            CD3DX12_RESOURCE_BARRIER DepthBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_DepthStencilBuffer.Get(),
+                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
             );
             m_CommandList->ResourceBarrier(1, &DepthBarrier);
@@ -1201,6 +1848,22 @@ namespace HOX {
             screenConsts.TileCountY = m_TileCullingBuffers->GetYTileCount();
             m_CommandList->SetGraphicsRoot32BitConstants(RootParams::ScreenConstants, 4, &screenConsts, 0);
 
+            // Bind shadow map SRV (t6)
+            m_CommandList->SetGraphicsRootDescriptorTable(RootParams::ShadowMapSRV,
+                                                          m_SRVHeap->GetGPUHandle(m_CascadedShadowMap->GetSRVIndex()));
+
+            // Bind SSAO texture SRV (t7) - blurred output
+            m_CommandList->SetGraphicsRootDescriptorTable(RootParams::SSAOSRV,
+                                                          m_SRVHeap->GetGPUHandle(m_SSAO->GetSSAOBlurredSRVIndex()));
+
+            // Bind shadow constants CBV (b3)
+            m_CommandList->SetGraphicsRootConstantBufferView(RootParams::ShadowCBV,
+                                                              m_CascadedShadowMap->GetConstantBuffer()->GetGPUVirtualAddress());
+
+            // Bind tone mapping constants CBV (b4)
+            m_CommandList->SetGraphicsRootConstantBufferView(RootParams::ToneMappingConstants,
+                                                              m_ToneMappingConstantsBuffer->GetGPUVirtualAddress());
+
             m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             m_CommandList->RSSetViewports(1, &m_Viewport);
             m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
@@ -1215,17 +1878,32 @@ namespace HOX {
                 m_Scene->Render(m_CommandList.Get(), m_SRVHeap.get(), DefaultTextures);
             }
 
-            // Transition UAVs back for next frame's compute pass
-            D3D12_RESOURCE_BARRIER UAVBarriers[2] = {};
-            UAVBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+            // Transition resources back for next frame
+            D3D12_RESOURCE_BARRIER EndFrameBarriers[4] = {};
+
+            // Light culling UAVs back to UAV
+            EndFrameBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
                 m_TileCullingBuffers->GetLightGridResource(),
                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
                 D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-            UAVBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+            EndFrameBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
                 m_TileCullingBuffers->GetLightIndexListResource(),
                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
                 D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-            m_CommandList->ResourceBarrier(2, UAVBarriers);
+
+            // Shadow maps back to depth write
+            EndFrameBarriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_CascadedShadowMap->GetResource(),
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                D3D12_RESOURCE_STATE_DEPTH_WRITE);
+
+            // SSAO blurred back to UAV
+            EndFrameBarriers[3] = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_SSAO->GetSSAOBlurred(),
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+            m_CommandList->ResourceBarrier(4, EndFrameBarriers);
         } {
             // Transition back buffer to present
             CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1283,12 +1961,15 @@ namespace HOX {
         if (elapsedSeconds > 1.0) {
             char buffer[500];
             auto fps = frameCounter / elapsedSeconds;
-            sprintf_s(buffer, 500, "FPS: %f\n", fps);
-            OutputDebugString(buffer);
+            printf("FPS: %f\n", fps);
 
             frameCounter = 0;
             elapsedSeconds = 0.0;
+
         }
+
+
+
 
         m_Camera->Update(deltaTime);
 

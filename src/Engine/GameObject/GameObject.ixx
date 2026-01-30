@@ -47,7 +47,10 @@ export namespace HOX {
 
         void Draw(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, const Model::DefaultTextureIndices& DefaultTextures);
 
-        void DrawDepthOnly(ID3D12GraphicsCommandList *CommandList);
+        void DrawDepthOnly(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultAlbedoIndex);
+
+        // Draw for shadow map generation with alpha testing (uses shadow root signature)
+        void DrawShadow(ID3D12GraphicsCommandList *CommandList, DescriptorHeap* SRVHeap, u32 DefaultAlbedoIndex);
 
         void Release();
 

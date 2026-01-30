@@ -26,6 +26,8 @@ import HOX.Texture;
 import HOX.DescriptorHeap;
 import HOX.LightManager;
 import HOX.TileCullingBuffers;
+import HOX.CascadedShadowMap;
+import HOX.SSAO;
 
 export namespace HOX {
 
@@ -75,6 +77,7 @@ export namespace HOX {
         ComPtr<ID3DBlob> m_VertexShaderBlob;
         ComPtr<ID3DBlob> m_PixelShaderBlob;
         ComPtr<ID3DBlob> m_DepthVertexShaderShaderBlob;
+        ComPtr<ID3DBlob> m_DepthPixelShaderBlob;
 
 
         // Passes START
@@ -106,6 +109,26 @@ export namespace HOX {
         std::unique_ptr<LightManager> m_LightManager{};
         std::unique_ptr<TileCullingBuffers> m_TileCullingBuffers{};
 
+        // Cascaded Shadow Maps
+        std::unique_ptr<CascadedShadowMap> m_CascadedShadowMap{};
+        ComPtr<ID3D12RootSignature> m_ShadowRootSignature{};
+        ComPtr<ID3D12PipelineState> m_ShadowPSO{};
+        ComPtr<ID3DBlob> m_ShadowVSBlob{};
+        ComPtr<ID3DBlob> m_ShadowPSBlob{};
+
+        // SSAO
+        std::unique_ptr<SSAO> m_SSAO{};
+        ComPtr<ID3D12RootSignature> m_SSAORootSignature{};
+        ComPtr<ID3D12RootSignature> m_SSAOBlurRootSignature{};
+        ComPtr<ID3D12PipelineState> m_SSAOPSO{};
+        ComPtr<ID3D12PipelineState> m_SSAOBlurPSO{};
+        ComPtr<ID3DBlob> m_SSAOCSBlob{};
+        ComPtr<ID3DBlob> m_SSAOBlurCSBlob{};
+
+        // Tone Mapping
+        ComPtr<ID3D12Resource> m_ToneMappingConstantsBuffer{};
+        void* m_ToneMappingConstantsMapped{};
+        float m_Exposure{1.0f};  // Increased exposure for brighter scene
 
         // root signature
         ComPtr<ID3DBlob> SignatureBlob;
@@ -134,6 +157,10 @@ export namespace HOX {
         std::unique_ptr<Texture> m_DefaultNormalMap{};    // Default flat normal map (128, 128, 255)
         std::unique_ptr<Texture> m_DefaultMetallicRoughness{}; // Default non-metallic, medium roughness
 
+
+        u32 DirLightIdx{};
+
+        float DirectionValue{0};
 
         bool m_bTearingSupported{false};
 

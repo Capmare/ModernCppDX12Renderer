@@ -242,18 +242,18 @@ namespace HOX {
             MeshVertex v{};
 
             const aiVector3D &p = AiMesh->mVertices[i];
-            v.Position = {p.x, p.y, p.z};
+            v.Position = {p.x, p.y, -p.z};
 
             if (hasNormals) {
                 const aiVector3D &n = AiMesh->mNormals[i];
-                v.Normal = {n.x, n.y, n.z};
+                v.Normal = {n.x, n.y, -n.z};
             } else {
                 v.Normal = {0.0f, 1.0f, 0.0f};
             }
 
             if (hasTangents) {
                 const aiVector3D &t = AiMesh->mTangents[i];
-                v.Tangent = {t.x, t.y, t.z};
+                v.Tangent = {t.x, t.y, -t.z};
             } else {
                 v.Tangent = {1.0f, 0.0f, 0.0f};
             }
@@ -291,8 +291,8 @@ namespace HOX {
 
             // assuming triangulated
             indices[base + 0] = static_cast<u32>(face.mIndices[0]);
-            indices[base + 1] = static_cast<u32>(face.mIndices[1]);
-            indices[base + 2] = static_cast<u32>(face.mIndices[2]);
+            indices[base + 1] = static_cast<u32>(face.mIndices[2]);
+            indices[base + 2] = static_cast<u32>(face.mIndices[1]);
         };
 
         if (useParallel) std::for_each(std::execution::par_unseq, fid.begin(), fid.end(), buildFace);
