@@ -147,9 +147,10 @@ void main(
         GPULight light = Lights[i];
         bool inFrustum = false;
 
+        // Skip directional lights - they are processed directly in pixel shader
+        // This avoids wasting tile light slots on lights that affect all pixels
         if (light.Type == 0) {
-            // Directional light - always affects all tiles
-            inFrustum = true;
+            continue;
         }
         else if (light.Type == 1 || light.Type == 2) {
             // Point light or Spot light - test sphere against tile frustum

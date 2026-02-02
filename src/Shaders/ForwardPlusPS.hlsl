@@ -353,13 +353,21 @@ float4 main(PSInput input) : SV_Target {
     float3 ambient = albedo * 0.15 * ao;
     lighting += ambient;
 
-    // Process lights for this tile
+    // ALWAYS process directional light at index 0 directly (not from tile list)
+    // This ensures directional lights are never dropped when tiles are full
+    GPULight dirLight = Lights[0];
+    if (dirLight.Type == 0) {  // Directional
+        lighting += CalculateDirectionalLight(dirLight, input.worldPos, N, V, albedo, metallic, roughness, shadow);
+    }
+
+    // Process point/spot lights from the culled tile list
     for (uint i = 0; i < lightCount; i++) {
         uint lightIndex = LightIndexList[lightOffset + i];
         GPULight light = Lights[lightIndex];
 
-        if (light.Type == 0) { // Directional - apply shadow
-            lighting += CalculateDirectionalLight(light, input.worldPos, N, V, albedo, metallic, roughness, shadow);
+        // Skip directional lights (already processed above)
+        if (light.Type == 0) {
+            continue;
         }
         else if (light.Type == 1) { // Point
             lighting += CalculatePointLight(light, input.worldPos, N, V, albedo, metallic, roughness);

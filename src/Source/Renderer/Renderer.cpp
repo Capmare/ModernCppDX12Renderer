@@ -1078,59 +1078,64 @@ namespace HOX {
             // Directional light (sun) - illuminates entire scene
             Light.m_Type = LightType::Directional;
             DirectionValue += 0.001f;
-            Light.m_Direction = {-1, -.01, -0.f}; // Match Vulkan renderer direction
+            Light.m_Direction = {-.5, -.01, -.0f};
             Light.m_Color = {1.0f, 0.95f, 0.8f}; // Warm sunlight
-            Light.m_Intensity = 1.5f;
+            Light.m_Intensity = 3.f;
             Light.Range = 0.0f;
             DirLightIdx = m_LightManager->AddLight(Light);
 
             Light.m_Type = LightType::Point;
-            Light.Range = 40.0f;
-            Light.m_Intensity = 3.0f;
+            Light.Range = 400.0f;
+            Light.m_Intensity = 20.0f;
 
-            const int GRID_X = 100;
-            const int GRID_Z = 100;
-            const float SPACING = 20.0f;
-            const float HEIGHT = 4.0f;
+            const int GRID_X = 30;
+            const int GRID_Y = 30;
+            const int GRID_Z = 30;
+            const float SPACING = 500.0f;
+            const float BASE_HEIGHT = -3000.0f;
 
             int index = 0;
+            const int TOTAL_LIGHTS = GRID_X * GRID_Y * GRID_Z;
 
             for (int x = 0; x < GRID_X; x++)
             {
-                for (int z = 0; z < GRID_Z; z++)
+                for (int y = 0; y < GRID_Y; y++)
                 {
-                    // Position (flat grid)
-                    Light.m_Position = {
-                        (x - GRID_X / 2) * SPACING,
-                        HEIGHT,
-                        (z - GRID_Z / 2) * SPACING
-                    };
+                    for (int z = 0; z < GRID_Z; z++)
+                    {
+                        // Position (3D cube)
+                        Light.m_Position = {
+                            (x - GRID_X / 2) * SPACING,
+                            BASE_HEIGHT + y * SPACING,
+                            (z - GRID_Z / 2) * SPACING
+                        };
 
-                    // Unique color using HSV → RGB
-                    float h = float(index) / float(GRID_X * GRID_Z);
-                    float s = 1.0f;
-                    float v = 1.0f;
+                        // Unique color using HSV → RGB
+                        float h = float(index) / float(TOTAL_LIGHTS);
+                        float s = 1.0f;
+                        float v = 1.0f;
 
-                    float r, g, b;
-                    float i = floor(h * 6.0f);
-                    float f = h * 6.0f - i;
-                    float p = v * (1.0f - s);
-                    float q = v * (1.0f - f * s);
-                    float t = v * (1.0f - (1.0f - f) * s);
+                        float r, g, b;
+                        float i = floor(h * 6.0f);
+                        float f = h * 6.0f - i;
+                        float p = v * (1.0f - s);
+                        float q = v * (1.0f - f * s);
+                        float t = v * (1.0f - (1.0f - f) * s);
 
-                    switch (int(i) % 6) {
-                        case 0: r = v; g = t; b = p; break;
-                        case 1: r = q; g = v; b = p; break;
-                        case 2: r = p; g = v; b = t; break;
-                        case 3: r = p; g = q; b = v; break;
-                        case 4: r = t; g = p; b = v; break;
-                        case 5: r = v; g = p; b = q; break;
+                        switch (int(i) % 6) {
+                            case 0: r = v; g = t; b = p; break;
+                            case 1: r = q; g = v; b = p; break;
+                            case 2: r = p; g = v; b = t; break;
+                            case 3: r = p; g = q; b = v; break;
+                            case 4: r = t; g = p; b = v; break;
+                            case 5: r = v; g = p; b = q; break;
+                        }
+
+                        Light.m_Color = { r, g, b };
+
+                        m_LightManager->AddLight(Light);
+                        index++;
                     }
-
-                    Light.m_Color = { r, g, b };
-
-                    m_LightManager->AddLight(Light);
-                    index++;
                 }
             }
 
@@ -1224,7 +1229,7 @@ namespace HOX {
         m_CommandList->Reset(m_CommandAllocators[0].Get(), nullptr);
 
         m_GO->m_Model = std::move(
-            m_ModelLoader->LoadFromFile("../Resources/Sponza/sponza.glb", m_CommandList.Get(), m_SRVHeap.get()));
+            m_ModelLoader->LoadFromFile("../Resources/Cyberpunk/scene.gltf", m_CommandList.Get(), m_SRVHeap.get()));
 
         GetDeviceContext().m_CommandSystem->ExecuteAndFlush(
             m_CommandList.Get(),
